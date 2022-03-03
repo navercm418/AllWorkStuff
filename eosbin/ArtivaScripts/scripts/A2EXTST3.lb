@@ -1,0 +1,31 @@
+A2EXTST3
+script export test^G^0^1^RMDEV^^2^^A2EXTST3
+***Begin CODE
+'-={START_SCRIPT}=-
+' this is a test script #3
+' 11/30/20 - 11:30am
+Begin Declare
+  
+  ' declare section
+  zvTest1 As Chr
+  zvTest2 As Chr
+  
+  zvTest3 As Number
+  
+  
+End Declare
+
+Begin Main
+  
+  ' set vars
+  Set zvTest1 = "test1"
+  Set zvTest2 = "test2"
+  Set zvTest3 = 3
+  
+  ' this is test script # 3
+  
+End Main
+'-={END_SCRIPT}=-
+
+***End CODE
+***End LB

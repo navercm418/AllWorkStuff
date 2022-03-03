@@ -1,0 +1,77 @@
+ZZLVSTARTDTESTMP
+ZZLVSTARTDTESTMP^I^0^1^RMDEV^^0^^ZZLVSTARTDTESTMP
+***Begin CODE
+Begin Declare
+  
+  zvAct As syTabRec.ARACCOUNT
+  zvRel As syTabRec.ARRELATIONSHIP
+  zvEnt As syTabRec.ARENTITY
+  
+  zvSql As syQuery
+  
+  zvActId As Number
+  zvRelId As Number
+  zvEntId As Number
+  
+  zvErr As Chr
+  zvCnt As Number
+  
+End Declare
+
+Begin Main
+  
+  Call zvSql.Load("ZZLVSTARTDTESTMPSQL")
+  Call zvSql.Execute()
+  
+  Set zvCnt = ""
+  Set zvErr = ""
+  
+  Set zvActId = ""
+  Set zvRelId = ""
+  Set zvEntId = ""
+  
+  Set zvAct.ARACID = ""
+  Set zvRel.ARRELID = ""
+  Set zvEnt.ARENID = ""
+  
+  
+  Set zvErr = LBERRMSG
+  
+  Print "SQL Loaded?: "_zvErr
+  
+  While $$zvSql.Next() <> ""
+    
+    Set zvCnt = zvCnt +1
+    
+    Set zvRelId = zvSql.Key
+    Set zvRel.ARRELID = zvRelId
+    Set zvActId = zvRel.ARRELACID
+    Set zvEntId = zvRel.ARRELENID
+    
+    Set zvAct.ARACID = zvActId
+    Set zvRel.ARRELID = zvRelId
+    Set zvEnt.ARENID = zvEntId
+    
+    Set zvAct.ZZACLVLOADDTE = $$TODAY()
+    Set zvRel.ZZRELLVLOADDTE = $$TODAY()
+    Set zvEnt.ZZENLVLOADDTE = $$TODAY()
+    
+    Call zvAct.Write()
+    Call zvRel.Write()
+    Call zvEnt.Write()
+    
+    Set zvCnt = zvCnt + 1
+    
+    If LBERRMSG <> "Okay" Then
+      Set zvErr = zvErr_" | act: "_zvActId_" rel: "_zvRelId_" ent: "_zvEntId_" error: "_LBERRMSG_SYCR_SYLF
+    End If
+    
+  End While
+  
+  Print "Accounts Loaded: "_zvCnt
+  Print "Errors: "_zvErr
+  
+End Main
+
+***End CODE
+***End LB

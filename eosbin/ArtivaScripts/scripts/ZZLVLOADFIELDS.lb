@@ -1,0 +1,81 @@
+ZZLVLOADFIELDS
+LiveVox Load Date^I^0^1^RMDEV^^2^^ZZLVLOADFIELDS
+***Begin CODE
+Begin Declare
+  
+  zvAct As syTabRec.ARACCOUNT
+  zvRel As syTabRec.ARRELATIONSHIP
+  zvEnt As syTabRec.ARENTITY
+  
+  zvFile As syFile
+  
+  zvDataLine As Chr
+  
+  zvActId As Number
+  zvRelId As Number
+  zvEntId As Number
+  
+  zvErr As Chr
+  zvCnt As Number
+  
+End Declare
+
+Begin Main
+  
+  Set zvCnt = ""
+  Set zvErr = ""
+  Set zvDataLine = ""
+  
+  Set zvActId = ""
+  Set zvRelId = ""
+  Set zvEntId = ""
+  
+  Set zvAct.ARACID = ""
+  Set zvRel.ARRELID = ""
+  Set zvEnt.ARENID = ""
+  
+  
+  'Call zvFile.Open("/mnt/iscsi/RMPROD/LvApi/RecordFormat/RM_LvLoadDate8.psv") - DONE
+  'Call zvFile.Open("/mnt/iscsi/RMPROD/LvApi/RecordFormat/lvapidate.txt")
+  Call zvFile.Open("/mnt/artiva/it/files/import/andy_api_vz_accts.txt")
+  
+  Set zvErr = LBERRMSG
+  
+  Print "File Loaded: "_zvErr
+  
+  'While (Not zvFile.EOF) And (zvCnt < 5)
+  While Not zvFile.EOF
+    
+    Call zvFile.Read(zvDataLine)
+    
+    Set zvActId = $$PIECE(zvDataLine,"|",1)
+    Set zvRelId = $$PIECE(zvDataLine,"|",3)
+    Set zvEntId = $$PIECE(zvDataLine,"|",2)
+    
+    Set zvAct.ARACID = +zvActId
+    Set zvRel.ARRELID = +zvRelId
+    Set zvEnt.ARENID = +zvEntId
+    
+    Set zvAct.ZZACLVLOADDTE = $$TODAY()
+    Set zvRel.ZZRELLVLOADDTE = $$TODAY()
+    Set zvEnt.ZZENLVLOADDTE = $$TODAY()
+    
+    Call zvAct.Write()
+    Call zvRel.Write()
+    Call zvEnt.Write()
+    
+    Set zvCnt = zvCnt + 1
+    
+    If LBERRMSG <> "Okay" Then
+      Set zvErr = zvErr_" | act: "_zvActId_" rel: "_zvRelId_" ent: "_zvEntId_" error: "_LBERRMSG_SYCR_SYLF
+    End If
+    
+  End While
+  
+  Print "Accounts Loaded: "_zvCnt
+  Print "Errors: "_zvErr
+  
+End Main
+
+***End CODE
+***End LB

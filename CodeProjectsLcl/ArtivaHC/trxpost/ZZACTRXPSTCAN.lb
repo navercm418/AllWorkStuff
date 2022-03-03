@@ -1,0 +1,41 @@
+Begin Declare
+	
+	zvAcc As syTabRec.HCACCOUNT
+	zvTmx As syTabRec.ZZTMPTRX
+	
+	zvTmxIdx As syIndex.ZZTMPTRXMAINACCT
+	
+End Declare
+
+Begin Main
+	
+	Set zvAcc.HCACID = ""
+	Set zvTmx.ZZTMPTRXID = ""
+	
+	Set zvTmxIdx.ZZTMPTRXMAINACCT = ""
+	Set zvTmxIdx.ZZTMPTRXID = ""
+	
+	
+	Set zvAcc.HCACID = HCACID
+	
+	Set zvTmxIdx.ZZTMPTRXMAINACCT = zvAcc.HCACID
+	Set zvTmxIdx.ZZTMPTRXID = ""
+	
+	
+	If $$CONFIRM("Do you wish to cancel the transactions?","N") Then
+		Print "deleting"
+		While $$zvTmxIdx.Next() <> ""
+			
+			Set zvTmx.ZZTMPTRXID = zvTmxIdx.ZZTMPTRXID
+			Call zvTmx.Delete()
+			
+		End While
+		
+	Else
+		Print "not deleting"
+		Set LBRETURN = 0
+	End If
+	
+	Call SYREFRESHWIN("HCACCOUNT","ZZACTRXPSTWIN")
+	
+End Main

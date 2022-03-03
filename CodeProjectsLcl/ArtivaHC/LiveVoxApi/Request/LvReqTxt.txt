@@ -1,0 +1,7 @@
+DO ^%CD
+RMDEV
+SET $ZTrap="^%OSCETN"
+DO INITBGV^STMISC4
+DO main^LBZZLVAPIRETURN("/home/eosbin/LiveVoxApi/test.txt.cpl, 5.593480587005615")
+QUIT
+HALT

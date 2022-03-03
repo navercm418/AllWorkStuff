@@ -1,0 +1,560 @@
+ZZLVAPIUDTCNT
+***Begin PARAMS
+zpTable^CHR^N^^N
+zpKey^CHR^N^^N
+***End PARAMS
+LiveVox Api Update Contact^G^0^1^RMDEV^^2^^ZZLVAPIUDTCNT
+***Begin PARAMS
+zpTable^CHR^N^^N
+zpKey^CHR^N^^N
+***End PARAMS
+***Begin CODE
+' zpTable = Table
+' zpKey = Table Id
+'
+' Call ZZLVAPIUDTCNT(<TABLE>, <KEY>)
+'
+' Last Git push 6/11/2021 @ 12pm
+
+Begin Declare
+  
+  zvAcc As syTabRec.ARACCOUNT
+  zvAfc As syTabRec.AFACCOUNT
+  zvRel As syTabRec.ARRELATIONSHIP
+  zvEnt As syTabRec.ARENTITY
+  zvPhn As syTabRec.ARPHONE
+  
+  zvEntIdx As syIndex.ARRELENID
+  zvActRelIdx As syIndex.ARRELACID
+  zvPhnIdx As syIndex.ARPHENID
+  
+  zvSetId As Chr
+  zvSetWrkDte As Date
+  '-----------------------------------------
+  zvLvFld As syTabRec.ZZLVCNTMGRFLDS
+  zvLvHis As syTabRec.ZZLVAPIHIST
+  zvLvhGrpIdx As syIndex.ZZLVAPIHGRPID
+  zvLvGrp As Chr
+  
+  zvFldStr As Chr
+  zvFldCnt As Number
+  zvFldVal As Chr
+  
+  zvFunc As Chr
+  zvData As Chr
+  zvDataPoe As Chr
+  
+  zvRecId As Chr
+  zvAccId As Number
+  zvEntId As Number
+  zvRelId As Number
+  zvPhnId As Number
+  zvRelTyp As Chr
+  zvLvRecType As Chr
+  
+  zvTable As Chr
+  zvCustom As Chr
+  zvApiFldNam As Chr
+  zvApiFldTyp As Chr
+  
+  zvLvApiHstId As Chr
+  zvLvApiHstIdPoe As Chr
+  
+  zvTstStr As Chr
+  zvTmpDte As Date
+  
+  zvContinue As Chr
+  
+  zvRelCrt As Chr
+  zvActCrt As Chr
+  zvEntCrt As Chr
+  
+  zvClient As Chr
+  zvLvClt As Chr
+  
+End Declare
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Main
+  
+  If $$ZZLVAPIGETOPT("ENABLED") = "Y" Then
+    
+    '--------- clear variables -------------
+    Set zvTmpDte = ""
+    Set zvRecId = ""
+    Set zvRelCrt = ""
+    Set zvActCrt = ""
+    Set zvEntCrt = ""
+    Set zvRelTyp = ""
+    Set zvLvRecType = ""
+    Set zvSetWrkDte = ""
+    Set zvSetId = ""
+    
+    Set zvAccId = ""
+    Set zvEntId = ""
+    Set zvRelId = ""
+    Set zvPhnId = ""
+    
+    Set zvData = ""
+    Set zvFunc = ""
+    Set zvContinue = ""
+    
+    Set zvTable = ""
+    Set zvCustom = ""
+    Set zvApiFldNam = ""
+    Set zvApiFldTyp = ""
+    
+    Set zvLvApiHstId = ""
+    Set zvLvApiHstIdPoe = ""
+    Set zvLvGrp = ""
+    
+    Set zvFldStr = ""
+    Set zvFldCnt = ""
+    Set zvFldVal = ""
+    Set zvTstStr = ""
+    
+    Set zvClient = ""
+    Set zvLvClt = ""
+    
+    '---- tables ---
+    Set zvEntIdx.ARRELENID = ""
+    Set zvEntIdx.ARRELID = ""
+    
+    Set zvPhnIdx.ARPHENID = ""
+    Set zvPhnIdx.ARPHID = ""
+    
+    Set zvActRelIdx.ARRELACID = ""
+    Set zvActRelIdx.ARRELID = ""
+    
+    
+    Set zvLvFld.ZZLVCMID = ""
+    Set zvLvHis.ZZLVAPIHID = ""
+    
+    Set zvAcc.ARACID = ""
+    Set zvAfc.AFACKEY = ""
+    Set zvRel.ARRELID = ""
+    Set zvEnt.ARENID = ""
+    Set zvPhn.ARPHID = ""
+    '-------------------------------------
+    
+    '----------- start setting variables here -----------------
+    Set zvTable = zpTable
+    Set zvRecId = zpKey
+    Set zvLvGrp = zvTable_"~"_zvRecId_"~"_$$TODAY()
+    '------------------------------------------------------------------------------
+    
+    '---------------- Setup data to run Api --------------------------------------
+    
+    '-- get rec id (acct or ent)
+    Gosub GetRecIds
+    
+    '--- check if in Lv
+    If (zvRelCrt <> "") Or (zvActCrt <> "") Or (zvEntCrt <> "") Then
+      
+      '-- get fields & values for table
+      Gosub BldFldLst
+      
+      '-- start creating lv records
+      Select zvTable
+          
+        Case "ARRELATIONSHIP"
+          
+          Set zvData = zvAccId_zvLvRecType
+          If zvLvRecType = "C" Then
+            Set zvDataPoe = zvAccId_"POEC"
+          Else
+            Set zvDataPoe = zvAccId_"POEP"
+          End If
+          
+          Set zvLvApiHstId = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvData
+          Set zvLvApiHstIdPoe = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvDataPoe
+          
+          '---- set work date
+          Set zvSetId = $$READFLD("ARRELSETID",zvRelId)
+          Set zvSetWrkDte = $$READFLD("ARSETWRKDTE",zvSetId)
+          If $$BLANK(zvSetWrkDte) Then
+            Set zvSetWrkDte = 21550
+          End If
+          Set zvSetWrkDte = $$FMTDATE(zvSetWrkDte,"MM/DD/YYYY")
+          Set zvFldStr = zvFldStr_",COL21~"_zvSetWrkDte_"~CST]"
+          Set zvSetId = ""
+          Set zvSetWrkDte = ""
+          '----------------------
+          
+          Set zvData = zvData_"*-*"_zvFldStr_"*-*"_zvLvApiHstId
+          Set zvDataPoe = zvDataPoe_"*-*"_zvFldStr_"*-*"_zvLvApiHstIdPoe
+          
+          Set zvFunc = "UpdateContact"
+          
+          '-- create Lv Hist record
+          Gosub CreateLvHist
+          
+          '---------------------------------------------
+        Case "AFACCOUNT","ARACCOUNT"
+          Gosub ActAccts
+          
+          '---------------------------------------------
+        Case "ARENTITY"
+          Gosub EntAccts
+          
+          '---------------------------------------------
+        Case "ARPHONE","ARCELLPHCNST"
+          Gosub LvUdtPhone
+          
+          
+      End Select
+      
+    End If
+    
+  End If
+  
+End Main
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub GetRecIds
+  
+  Set zvAccId = ""
+  Set zvPhnId = ""
+  Set zvEntId = ""
+  Set zvRelId = ""
+  
+  Select zvTable
+      
+    Case "AFACCOUNT"
+      Set zvAccId = $$READFLD("AFACACCTID",zvRecId)
+      Set zvClient = $$READFLD("ARACCLTID",zvAccId)
+      
+    Case "ARACCOUNT"
+      Set zvAccId = zvRecId
+      Set zvClient = $$READFLD("ARACCLTID",zvAccId)
+      
+    Case "ARENTITY"
+      Set zvEntId = zvRecId
+      
+    Case "ARRELATIONSHIP"
+      Set zvRelId = zvRecId
+      Set zvAccId = $$READFLD("ARRELACID",zvRelId)
+      Set zvEntId = $$READFLD("ARRELENID",zvRelId)
+      Set zvClient = $$READFLD("ARACCLTID",zvAccId)
+      
+    Case "ARPHONE"
+      Set zvPhnId = zvRecId
+      Set zvEntId = $$READFLD("ARPHENID",zvPhnId)
+      
+    Case "ARCELLPHCNST"
+      Set zvPhnId = $$READFLD("ARCELLPHCNSTPHID",zvRecId)
+      Set zvEntId = $$READFLD("ARPHENID",zvPhnId)
+      
+    Case Else
+      
+  End Select
+  
+  ' -- Set RelType
+  '  PRIM      = <BLANK>
+  '  COMAK     = C
+  '  POE_PRIM  = POEP
+  '  POE_COMAK = POEC
+  
+  Set zvLvRecType = ""
+  Set zvRelTyp = ""
+  Set zvRelTyp = $$READFLD("ARRELTYPID",zvRelId)
+  
+  If zvRelTyp = "COMAK" Then
+    Set zvLvRecType = "C"
+  End If
+  
+  Set zvRelCrt = $$READFLD("ZZRELLVLOADDTE",zvRelId)
+  Set zvActCrt = $$READFLD("ZZACLVLOADDTE",zvAccId)
+  Set zvEntCrt = $$READFLD("ZZENLVLOADDTE",zvEntId)
+  
+End Sub GetRecIds
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub CreateLvHist
+  
+  If zvRelTyp = "PRIM" Then
+    Set zvLvRecType = "P"
+  End If
+  
+  Set zvLvhGrpIdx.ZZLVAPIHGRPID = ""
+  Set zvLvhGrpIdx.ZZLVAPIHGRPID = zvLvRecType_"~"_zvLvGrp_"~PENDING"
+  
+  ' clear group hist and keep latest info..
+  While $$zvLvhGrpIdx.Next() <> ""
+    Set zvLvHis.ZZLVAPIHID = zvLvhGrpIdx.ZZLVAPIHID
+    Call zvLvHis.Delete()
+  End While
+  
+  Call zvLvHis.create()
+  
+  Set zvLvHis.ZZLVAPIHID = zvLvApiHstId
+  Set zvLvHis.ZZLVAPIHACTID = zvAccId
+  Set zvLvHis.ZZLVAPIHRELID = zvRelId
+  Set zvLvHis.ZZLVAPIHENTID = zvEntId
+  Set zvLvHis.ZZLVAPIHTABLE = zvTable
+  Set zvLvHis.ZZLVAPIHRECID = zvRecId
+  Set zvLvHis.ZZLVAPIHFUNC = zvFunc
+  Set zvLvHis.ZZLVAPIHDTEOUT = $$TODAY()
+  Set zvLvHis.ZZLVAPIHTIMOUT = $$NOW()
+  Set zvLvHis.ZZLVAPIHCMPLT = "N"
+  Set zvLvHis.ZZLVAPIHDATAOUT = zvData
+  Set zvLvHis.ZZLVAPIHSTATUS = "PENDING"
+  Set zvLvHis.ZZLVAPIHGRPID = zvLvRecType_"~"_zvLvGrp_"~PENDING"
+  Set zvLvHis.ZZLVAPIHPOE = "N"
+  Set zvLvHis.ZZLVAPIHRELTYP = zvRelTyp
+  Set zvLvHis.ZZLVAPIHTEST = "update contact: recid="_zvRecId_", table="_zvTable_", reltype="_zvRelTyp_", datetime="_$$FMTDATE($$TODAY(),"MM/DD/YYYY")_" @ "_$$FMTTIME($$NOW(),"HH:MM:SS")
+  
+  Call zvLvHis.Write()
+  
+  
+  Set zvLvApiHstId = ""
+  
+  '---------------------- Poe LvHist --------------------
+  
+  Set zvLvhGrpIdx.ZZLVAPIHGRPID = ""
+  Set zvLvhGrpIdx.ZZLVAPIHGRPID = "POE~"_zvLvRecType_"~"_zvLvGrp_"~PENDING"
+  
+  While $$zvLvhGrpIdx.Next() <> ""
+    Set zvLvHis.ZZLVAPIHID = zvLvhGrpIdx.ZZLVAPIHID
+    Call zvLvHis.Delete()
+  End While
+  
+  Call zvLvHis.create()
+  
+  Set zvLvHis.ZZLVAPIHID = zvLvApiHstIdPoe
+  Set zvLvHis.ZZLVAPIHACTID = zvAccId
+  Set zvLvHis.ZZLVAPIHRELID = zvRelId
+  Set zvLvHis.ZZLVAPIHENTID = zvEntId
+  Set zvLvHis.ZZLVAPIHTABLE = zvTable
+  Set zvLvHis.ZZLVAPIHRECID = zvRecId
+  Set zvLvHis.ZZLVAPIHFUNC = zvFunc
+  Set zvLvHis.ZZLVAPIHDTEOUT = $$TODAY()
+  Set zvLvHis.ZZLVAPIHTIMOUT = $$NOW()
+  Set zvLvHis.ZZLVAPIHCMPLT = "N"
+  Set zvLvHis.ZZLVAPIHDATAOUT = zvDataPoe
+  Set zvLvHis.ZZLVAPIHSTATUS = "PENDING"
+  Set zvLvHis.ZZLVAPIHGRPID = "POE~"_zvLvRecType_"~"_zvLvGrp_"~PENDING"
+  Set zvLvHis.ZZLVAPIHPOE = "Y"
+  Set zvLvHis.ZZLVAPIHRELTYP = zvRelTyp
+  Set zvLvHis.ZZLVAPIHTEST = "update contact: recid="_zvRecId_", table="_zvTable_", reltype="_zvRelTyp_", datetime="_$$FMTDATE($$TODAY(),"MM/DD/YYYY")_" @ "_$$FMTTIME($$NOW(),"HH:MM:SS")
+  
+  Call zvLvHis.Write()
+  
+  
+  Set zvLvApiHstIdPoe = ""
+  
+End Sub CreateLvHist
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub EntAccts
+  
+  Set zvEntIdx.ARRELENID = zvEntId
+  Set zvEntIdx.ARRELID = ""
+  
+  While $$zvEntIdx.Next() <> ""
+    
+    Set zvRel.ARRELID = zvEntIdx.ARRELID
+    
+    Set zvRelId = zvRel.ARRELID
+    Set zvAccId = zvRel.ARRELACID
+    ' -- Set RelType
+    '  PRIM      = <BLANK>
+    '  COMAK     = C
+    '  POE_PRIM  = POEP
+    '  POE_COMAK = POEC
+    
+    Set zvLvRecType = ""
+    Set zvRelTyp = ""
+    Set zvRelTyp = $$READFLD("ARRELTYPID",zvRelId)
+    
+    If (zvRelTyp = "COMAK") Or (zvRelTyp = "PRIM") Then
+      If zvRelTyp = "COMAK" Then
+        Set zvLvRecType = "C"
+      End If
+      
+      Set zvData = zvAccId_zvLvRecType
+      If zvLvRecType = "C" Then
+        Set zvDataPoe = zvAccId_"POEC"
+      Else
+        Set zvDataPoe = zvAccId_"POEP"
+      End If
+      
+      Set zvLvApiHstId = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvData
+      Set zvLvApiHstIdPoe = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvDataPoe
+      
+      '---- set work date
+      Set zvSetId = $$READFLD("ARRELSETID",zvRelId)
+      Set zvSetWrkDte = $$READFLD("ARSETWRKDTE",zvSetId)
+      If $$BLANK(zvSetWrkDte) Then
+        Set zvSetWrkDte = 21550
+      End If
+      Set zvSetWrkDte = $$FMTDATE(zvSetWrkDte,"MM/DD/YYYY")
+      Set zvFldStr = zvFldStr_",COL21~"_zvSetWrkDte_"~CST]"
+      Set zvSetId = ""
+      Set zvSetWrkDte = ""
+      '----------------------
+      
+      Set zvData = zvData_"*-*"_zvFldStr_"*-*"_zvLvApiHstId
+      Set zvDataPoe = zvDataPoe_"*-*"_zvFldStr_"*-*"_zvLvApiHstIdPoe
+      
+      Set zvFunc = "UpdateContact"
+      
+      Set zvClient = $$READFLD("ARACCLTID",zvAccId)
+      
+      Gosub CreateLvHist
+      
+    End If
+    
+  End While
+  
+End Sub EntAccts
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub ActAccts
+  
+  Set zvActRelIdx.ARRELACID = zvAccId
+  Set zvActRelIdx.ARRELID = ""
+  
+  While $$zvActRelIdx.Next() <> ""
+    
+    Set zvRelId = zvActRelIdx.ARRELID
+    
+    Set zvLvRecType = ""
+    Set zvRelTyp = ""
+    Set zvRelTyp = $$READFLD("ARRELTYPID",zvRelId)
+    
+    If (zvRelTyp = "COMAK") Or (zvRelTyp = "PRIM") Then
+      If zvRelTyp = "COMAK" Then
+        Set zvLvRecType = "C"
+      End If
+      
+      Set zvData = zvAccId_zvLvRecType
+      If zvLvRecType = "C" Then
+        Set zvDataPoe = zvAccId_"POEC"
+      Else
+        Set zvDataPoe = zvAccId_"POEP"
+      End If
+      
+      Set zvLvApiHstId = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvData
+      Set zvLvApiHstIdPoe = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvDataPoe
+      
+      '---- set work date
+      Set zvSetId = $$READFLD("ARRELSETID",zvRelId)
+      Set zvSetWrkDte = $$READFLD("ARSETWRKDTE",zvSetId)
+      If $$BLANK(zvSetWrkDte) Then
+        Set zvSetWrkDte = 21550
+      End If
+      Set zvSetWrkDte = $$FMTDATE(zvSetWrkDte,"MM/DD/YYYY")
+      Set zvFldStr = zvFldStr_",COL21~"_zvSetWrkDte_"~CST]"
+      Set zvSetId = ""
+      Set zvSetWrkDte = ""
+      '----------------------
+      
+      Set zvData = zvData_"*-*"_zvFldStr_"*-*"_zvLvApiHstId
+      Set zvDataPoe = zvDataPoe_"*-*"_zvFldStr_"*-*"_zvLvApiHstIdPoe
+      
+      Set zvFunc = "UpdateContact"
+      
+      Set zvClient = $$READFLD("ARACCLTID",zvAccId)
+      
+      Gosub CreateLvHist
+      
+    End If
+    
+  End While
+  
+End Sub ActAccts
+'________________________________________________________________________________________________________________________________________________________________________
+'________________________________________________________________________________________________________________________________________________________________________
+Begin Sub LvUdtPhone
+  
+  Set zvLvhGrpIdx.ZZLVAPIHGRPID = zvLvGrp_"~PENDING"
+  
+  While $$zvLvhGrpIdx.Next() <> ""
+    Set zvLvHis.ZZLVAPIHID = zvLvhGrpIdx.ZZLVAPIHID
+    Call zvLvHis.Delete()
+  End While
+  
+  Set zvPhn.ARPHID = zvPhnId
+  
+  Call zvLvHis.create()
+  
+  Set zvLvHis.ZZLVAPIHID = "PHN"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvPhn.ARPHID
+  Set zvLvHis.ZZLVAPIHACTID = ""
+  Set zvLvHis.ZZLVAPIHRELID = ""
+  Set zvLvHis.ZZLVAPIHENTID = zvPhn.ARPHENID
+  Set zvLvHis.ZZLVAPIHTABLE = "ARPHONE"
+  Set zvLvHis.ZZLVAPIHRECID = zvPhn.ARPHID
+  Set zvLvHis.ZZLVAPIHFUNC = "NewPhone"
+  Set zvLvHis.ZZLVAPIHSTATUS = "PENDING"
+  Set zvLvHis.ZZLVAPIHCMPLT = "N"
+  Set zvLvHis.ZZLVAPIHDATAOUT = ""
+  Set zvLvHis.ZZLVAPIHGRPID = zvLvGrp_"~PENDING"
+  Set zvLvHis.ZZLVAPIHTEST = "new phone: phnid="_zvPhn.ARPHID_", enid="_zvPhn.ARPHENID_", datetime="_$$FMTDATE($$TODAY(),"MM/DD/YYYY")_" @ "_$$FMTTIME($$NOW(),"HH:MM:SS")
+  
+  Call zvLvHis.Write()
+  
+End Sub LvUdtPhone
+'________________________________________________________________________________________________________________________________________________________________________
+'________________________________________________________________________________________________________________________________________________________________________
+Begin Sub BldFldLst
+  
+  ' <api_nam> <value> <cat>
+  ' [lastName~TstLnm3~PER,amountToSpeak~333.33~DEF,COL5~05/30/2021~CST,...]
+  Set zvFldStr = "["
+  Set zvFldCnt = 1
+  Set zvFldVal = ""
+  
+  Set zvLvFld.ZZLVCMID = ""
+  
+  While $$zvLvFld.Next() <> ""
+    
+    If zvLvFld.ZZLVCMRMTABLE = zvTable Then
+      If zvLvFld.ZZLVCMTRACK = "Y" Then
+        
+        Set zvFldVal = $$READFLD(zvLvFld.ZZLVCMRMFLD,zvRecId)
+        Set zvApiFldTyp = zvLvFld.ZZLVCMFLDTYP
+        
+        If $$BLANK(zvFldVal) Then
+          
+          If zvApiFldTyp = "NUMBER" Then
+            Set zvFldVal = 0
+          End If
+          
+          If zvApiFldTyp = "STRING" Then
+            Set zvFldVal = "<BLANK>"
+          End If
+          
+          If zvApiFldTyp = "DATE" Then
+            Set zvFldVal = "01/01/1900"
+          End If
+          
+        Else
+          
+          If zvApiFldTyp = "DATE" Then
+            Set zvTmpDte = zvFldVal
+            Set zvFldVal = $$FMTDATE(zvTmpDte,"MM/DD/YYYY")
+          End If
+          
+        End If
+        
+        
+        If zvFldCnt = 1 Then
+          Set zvFldStr = zvFldStr_zvLvFld.ZZLVCMAPIFLD_"~"_zvFldVal_"~"_zvLvFld.ZZLVCMFLDCAT
+        Else
+          Set zvFldStr = zvFldStr_","_zvLvFld.ZZLVCMAPIFLD_"~"_zvFldVal_"~"_zvLvFld.ZZLVCMFLDCAT
+        End If
+        
+        Set zvFldCnt = zvFldCnt + 1
+        
+      End If
+    End If
+    
+  End While
+  
+  'Set zvFldStr = zvFldStr_"]"
+  
+End Sub BldFldLst
+
+***End CODE
+***End LB

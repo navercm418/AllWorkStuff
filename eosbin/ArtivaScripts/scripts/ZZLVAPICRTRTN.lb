@@ -1,0 +1,262 @@
+ZZLVAPICRTRTN
+***Begin PARAMS
+zvLvHistIdIn^CHR^N^^N
+zvAcctIn^CHR^N^^N
+***End PARAMS
+LiveVox Create Contact Return^G^0^1^RMDEV^^2^^ZZLVAPICRTRTN
+***Begin PARAMS
+zvLvHistIdIn^CHR^N^^N
+zvAcctIn^CHR^N^^N
+***End PARAMS
+***Begin CODE
+' parameters:
+'             zvLvHistIdIn = CHR
+'             zvAcctIn     = CHR
+
+Begin Declare
+  
+  zvAcc As syTabRec.ARACCOUNT
+  zvAfc As syTabRec.AFACCOUNT
+  zvRel As syTabRec.ARRELATIONSHIP
+  zvEnt As syTabRec.ARENTITY
+  zvPhn As syTabRec.ARPHONE
+  zvClt As syTabRec.ARCLIENT
+  
+  zvEntIdx As syIndex.ARRELENID
+  zvPhnIdx As syIndex.ARPHENID
+  '-----------------------------------------
+  
+  zvLvFld As syTabRec.ZZLVCNTMGRFLDS
+  zvLvHis As syTabRec.ZZLVAPIHIST
+  
+  zvFunc As Chr
+  zvData As Chr
+  
+  zvAccId As Number
+  zvEntId As Number
+  zvRelId As Number
+  zvPhnId As Number
+  
+  zvTable As Chr
+  zvCustom As Chr
+  zvApiFldNam As Chr
+  zvApiFldTyp As Chr
+  zvRmFldNam As Chr
+  zvRmFldVal As Chr
+  
+  zvLvApiHstId As Chr
+  
+  zvTstStr As Chr
+  
+  zvContinue As Chr
+  
+  zvReqCnt As Number
+  
+  zvValId As Chr
+  
+End Declare
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Main
+  
+  '--------- clear variables -------------
+  Set zvAccId = ""
+  Set zvEntId = ""
+  Set zvRelId = ""
+  Set zvValId = ""
+  
+  Set zvData = ""
+  Set zvFunc = ""
+  Set zvContinue = ""
+  Set zvReqCnt = ""
+  
+  Set zvTable = ""
+  Set zvCustom = ""
+  Set zvApiFldNam = ""
+  Set zvApiFldTyp = ""
+  Set zvRmFldNam = ""
+  Set zvRmFldVal = ""
+  
+  Set zvLvApiHstId = ""
+  Set zvTstStr = ""
+  
+  '---- tables ---
+  Set zvEntIdx.ARRELENID = ""
+  Set zvEntIdx.ARRELID = ""
+  
+  Set zvPhnIdx.ARPHENID = ""
+  Set zvPhnIdx.ARPHID = ""
+  
+  
+  Set zvLvFld.ZZLVCMID = ""
+  Set zvLvHis.ZZLVAPIHID = ""
+  
+  Set zvAcc.ARACID = ""
+  Set zvAfc.AFACKEY = ""
+  Set zvRel.ARRELID = ""
+  Set zvEnt.ARENID = ""
+  Set zvPhn.ARPHID = ""
+  Set zvClt.ARCLID = ""
+  '-------------------------------------
+  
+  '--------------- set actual data / rec id's -----------------------------------
+  Set zvLvHis.ZZLVAPIHID = zvLvHistIdIn
+  
+  Set zvRelId = zvLvHis.ZZLVAPIHRELID
+  Set zvAccId = zvLvHis.ZZLVAPIHACTID
+  Set zvEntId = zvLvHis.ZZLVAPIHENTID
+  '------------------------------------------------------------------------------
+  
+  '----------------- get LvTable Data ----------------------------------------------
+  Set zvLvFld.ZZLVCMID = ""
+  
+  Set zvReqCnt = 1
+  
+  While $$zvLvFld.Next() <> ""
+    
+    If zvLvFld.ZZLVCMCREATE = "Y" Then
+      
+      Set zvTable = zvLvFld.ZZLVCMRMTABLE
+      Set zvCustom = zvLvFld.ZZLVCMCUSTOM
+      Set zvApiFldNam = zvLvFld.ZZLVCMAPIFLD
+      Set zvApiFldTyp = zvLvFld.ZZLVCMFLDTYP
+      Set zvRmFldNam = zvLvFld.ZZLVCMRMFLD
+      
+      Gosub GetVal
+      
+      If zvApiFldTyp = "DATE" Then
+        Set zvRmFldVal = $$FMTDATE(zvRmFldVal,"MM/DD/YYYY")
+      End If
+      
+      Set zvFunc = ""
+      Set zvData = ""
+      
+      ' data = "acct#"*-*"field name"*-*"field value"*-*"custom?"*-*"lv hist id"
+      Set zvFunc = "UpdateContact"
+      Set zvData = zvAccId_"*-*"_zvApiFldNam_"*-*"_zvRmFldVal_"*-*"_zvCustom_"*-*"_zvLvHistIdIn_"_"_zvReqCnt
+      
+      Set zvTstStr = "zvRmFldNam= "_zvRmFldNam_" | val= "_zvRmFldVal_" | typ= "_zvApiFldTyp
+      
+      Gosub SendReq
+      
+      Set zvReqCnt = zvReqCnt + 1
+      
+    End If
+    
+  End While
+  
+  '------------ set RMPROD to Lv---------------------------------------------------------------------------
+  Set zvFunc = "UpdateContact"
+  Set zvData = zvAccId_"*-*"_"COL18"_"*-*"_"RMPROD"_"*-*"_"Y"_"*-*"_zvLvHistIdIn_"_"_zvReqCnt
+  Gosub SendReq
+  Set zvReqCnt = zvReqCnt + 1
+  '------------ set RMPROD to Lv---------------------------------------------------------------------------
+  
+  Gosub PhoneFields
+  
+End Main
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub CreateLvHist
+  
+  Call zvLvHis.create()
+  
+  Set zvLvHis.ZZLVAPIHID = zvLvHistIdIn_"_"_zvReqCnt
+  Set zvLvHis.ZZLVAPIHACTID = zvAccId
+  Set zvLvHis.ZZLVAPIHRELID = zvRelId
+  Set zvLvHis.ZZLVAPIHENTID = zvEntId
+  Set zvLvHis.ZZLVAPIHTABLE = zvTable
+  Set zvLvHis.ZZLVAPIHRECID = zvAccId
+  Set zvLvHis.ZZLVAPIHFUNC = zvFunc
+  Set zvLvHis.ZZLVAPIHDTEOUT = $$TODAY()
+  Set zvLvHis.ZZLVAPIHTIMOUT = $$NOW()
+  Set zvLvHis.ZZLVAPIHCMPLT = "N"
+  Set zvLvHis.ZZLVAPIHDATAOUT = "call ZZLVAPIMANREQ("_zvFunc_","_zvData_")"
+  Set zvLvHis.ZZLVAPIHTEST = zvTstStr
+  
+  Call zvLvHis.Write()
+  
+End Sub CreateLvHist
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub PhoneFields
+  
+  Set zvFunc = ""
+  Set zvData = ""
+  
+  '    "entity id"*-*"phone number"*-*"phone usage"*-*"phone blk
+  ' ex:       42344*-*7817534209*-*PRIMARY*-*NONE
+  
+  Set zvData = zvEntId_"*-*"_"XXXXXXXXXX"_"*-*"_"XXXXXX"_"*-*"_"XXXX"
+  
+  Call ZZLVAPINEWPHN(zvData)
+  
+End Sub PhoneFields
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub GetVal
+  
+  Set zvValId = ""
+  Set zvRmFldVal = ""
+  
+  Select zvTable
+      
+    Case "ARRELATIONSHIP"
+      If zvRmFldNam = "ARRELID" Then
+        Set zvRmFldVal = zvRelId
+      Else
+        Set zvValId = zvRelId
+        Set zvRmFldVal = $$READFLD(zvRmFldNam,zvValId)
+      End If
+      
+    Case "ARACCOUNT"
+      If zvRmFldNam = "ARACID" Then
+        Set zvRmFldVal = zvAccId
+      Else
+        Set zvValId = zvAccId
+        Set zvRmFldVal = $$READFLD(zvRmFldNam,zvValId)
+      End If
+      
+    Case "ARENTITY"
+      If zvRmFldNam = "ARENID" Then
+        Set zvRmFldVal = zvEntId
+      Else
+        Set zvValId = zvEntId
+        Set zvRmFldVal = $$READFLD(zvRmFldNam,zvValId)
+      End If
+      
+    Case "AFACCOUNT"
+      Set zvAcc.ARACID = zvAccId
+      Set zvValId = zvAcc.ARACFINACCTID
+      Set zvRmFldVal = $$READFLD(zvRmFldNam,zvValId)
+      
+    Case "ARCLIENT"
+      Set zvAcc.ARACID = zvAccId
+      Set zvValId = zvAcc.ARACCLTID
+      Set zvRmFldVal = $$READFLD(zvRmFldNam,zvValId)
+      If     zvRmFldNam = "ARCLID" Then
+        Set zvRmFldVal = zvAcc.ARACCLTID
+      End If
+      
+    Case "Else"
+      
+  End Select
+  
+End Sub GetVal
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub SendReq
+  
+  '-- set ids and functions correctly
+  If zvAccId <> "" Then
+    
+    Gosub CreateLvHist
+    
+    Call ZZLVAPIMANREQ(zvFunc,zvData)
+    
+  End If
+  
+End Sub SendReq
+
+***End CODE
+***End LB

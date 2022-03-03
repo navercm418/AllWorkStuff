@@ -1,0 +1,9 @@
+DO ^%MGDIR
+DO ^TASKMGR
+7
+4566
+
+
+
+
+HALT

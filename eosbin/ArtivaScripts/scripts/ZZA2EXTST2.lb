@@ -1,0 +1,23 @@
+ZZA2EXTST2
+^A^0^1^RMDEV^^2^^ZZA2EXTST2
+***Begin CODE
+' 4/27/21 - 10:45am
+
+Begin Declare
+  var1 As Chr
+End Declare
+
+Begin Main
+  '' test
+  'test 2
+  ' 'test3' '
+  ' 'test 4 '
+  ' hopefully last test
+  
+  Set var1 = "test"
+  Set var1 = "test2"
+  Set var1 = "test3"
+End Main
+
+***End CODE
+***End LB

@@ -1,0 +1,89 @@
+ZZLVWRITETABLESCR
+write to lv contact mgr table^I^0^1^RMDEV^^0^^ZZLVWRITETABLESCR
+***Begin CODE
+Begin Declare
+  
+  zvLvCm As syTabRec.ZZLVCNTMGRFLDS
+  
+  zvErr As Chr
+  
+  zvFile As syFile
+  
+  zvData As Chr
+  
+  zvZZLVCMID As Chr
+  ZZLVCMAPIFLD As Chr
+  zvZZLVCMFLDDSC As Chr
+  zvZZLVCMRMFLD As Chr
+  zvZZLVCMRMFLDDESC As Chr
+  zvZZLVCMRMTABLE As Chr
+  zvZZLVCMFLDTYP As Chr
+  zvZZLVCMCUSTOM As Chr
+  zvZZLVCMCREATE As Chr
+  zvZZLVCMTRACK As Chr
+  
+End Declare
+
+Begin Main
+  
+  Set zvZZLVCMID = ""
+  Set ZZLVCMAPIFLD = ""
+  Set zvZZLVCMFLDDSC = ""
+  Set zvZZLVCMRMFLD = ""
+  Set zvZZLVCMRMFLDDESC = ""
+  Set zvZZLVCMRMTABLE = ""
+  Set zvZZLVCMFLDTYP = ""
+  Set zvZZLVCMCUSTOM = ""
+  Set zvZZLVCMCREATE = ""
+  Set zvZZLVCMTRACK = ""
+  
+  Set zvData = ""
+  Set zvErr = ""
+  
+  Set zvLvCm.ZZLVCMID = ""
+  
+  Call zvFile.Open("/mnt/iscsi/RMPROD/LvApi/RecordFormat/RM_LvField_Table_Load.psv")
+  'Call zvFile.Open("/mnt/vmware/rm/rmdev/LvApi/RecordFormat/RM_LvField_Table_Load.psv")
+  
+  Set zvErr = zvErr_"|"_LBERRMSG
+  
+  While Not zvFile.EOF
+    
+    Call zvFile.Read(zvData)
+    
+    Print zvData
+    
+    Set zvZZLVCMID = $$PIECE(zvData,"|",1)
+    Set ZZLVCMAPIFLD = $$PIECE(zvData,"|",2)
+    Set zvZZLVCMFLDDSC = $$PIECE(zvData,"|",3)
+    Set zvZZLVCMRMFLD = $$PIECE(zvData,"|",4)
+    Set zvZZLVCMRMFLDDESC = $$PIECE(zvData,"|",5)
+    Set zvZZLVCMRMTABLE = $$PIECE(zvData,"|",6)
+    Set zvZZLVCMFLDTYP = $$PIECE(zvData,"|",7)
+    Set zvZZLVCMCUSTOM = $$PIECE(zvData,"|",8)
+    Set zvZZLVCMCREATE = $$PIECE(zvData,"|",9)
+    Set zvZZLVCMTRACK = $$PIECE(zvData,"|",10)
+    
+    Set zvLvCm.ZZLVCMID = zvZZLVCMID
+    Set zvLvCm.ZZLVCMAPIFLD = ZZLVCMAPIFLD
+    Set zvLvCm.ZZLVCMFLDDSC = zvZZLVCMFLDDSC
+    Set zvLvCm.ZZLVCMRMFLD = zvZZLVCMRMFLD
+    Set zvLvCm.ZZLVCMRMFLDDESC = zvZZLVCMRMFLDDESC
+    Set zvLvCm.ZZLVCMRMTABLE = zvZZLVCMRMTABLE
+    Set zvLvCm.ZZLVCMFLDTYP = zvZZLVCMFLDTYP
+    Set zvLvCm.ZZLVCMCUSTOM = zvZZLVCMCUSTOM
+    Set zvLvCm.ZZLVCMCREATE = zvZZLVCMCREATE
+    Set zvLvCm.ZZLVCMTRACK = zvZZLVCMTRACK
+    
+    Call zvLvCm.Write()
+    
+  End While
+  
+  Set zvErr = zvErr_"|"_LBERRMSG
+  
+  Print "Error = "_zvErr
+  
+End Main
+
+***End CODE
+***End LB

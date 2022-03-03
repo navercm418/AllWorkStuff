@@ -1,0 +1,181 @@
+ZZPHRANKSCR
+For ZZPHRANK^C^0^1^RMDEV^^2^^ZZPHRANKSCR
+***Begin CODE
+' For Field ZZPHRANK
+' init commit 12/10/2020 - 12:56pm
+
+Begin Declare
+  
+  zvPhn As syTabRec.ARPHONE
+  zvPhnEntIdx As syindex.ARPHENID
+  
+  zvCnsCnt As Number
+  zvPoeCnt As Number
+  zvVcnCnt As Number
+  zvVpoCnt As Number
+  
+  zvBad As Chr
+  zvCurPhnId As Number
+  zvPhnId As Number
+  
+  zvRtn As Chr
+  
+  zvCnsLst As syList
+  zvCnsLen As Number
+  
+  zvPoeLst As syList
+  zvPoeLen As Number
+  
+End Declare
+
+Begin Main
+  
+  Set zvPhnId = ""
+  Set zvVpoCnt = ""
+  Set zvVcnCnt = ""
+  Call zvPoeLst.Clear()
+  Call zvCnsLst.Clear()
+  Set zvPoeLen = ""
+  Set zvCnsLen = ""
+  Set zvCnsCnt = ""
+  Set zvPoeCnt = ""
+  Set zvBad = ""
+  Set zvCurPhnId = ""
+  Set zvRtn = ""
+  
+  Set zvPhn.ARPHID = ""
+  Set zvPhnEntIdx.ARPHENID = ""
+  
+  
+  Set zvPhn.ARPHID = ARPHID
+  Set zvCurPhnId = zvPhn.ARPHID
+  
+  Set zvPhnEntIdx.ARPHENID = zvPhn.ARPHENID
+  Set zvPhnEntIdx.ARPHID = ""
+  
+  Set zvCnsCnt = 1
+  Set zvPoeCnt = 1
+  Set zvVpoCnt = 1
+  Set zvVcnCnt = 1
+  
+  While $$zvPhnEntIdx.Next() <> ""
+    
+    Set zvPhn.ARPHID = zvPhnEntIdx.ARPHID
+    
+    ' -------------- Check bad number . . .
+    Set zvBad = ""
+    Set zvBad = zvPhn.ARPHEXHAUSTED_zvPhn.ARPHCEASE_zvPhn.ARPHBAD_zvPhn.ARPHWRONG
+    If $$UPPER(zvBad) [ "Y" Then
+      Set zvBad = "Y"
+      Set zvRtn = "X"
+    End If
+    
+    ' Check Fax
+    If $$UPPER(zvPhn.ARPHTYPE) = "FAX" Then
+      Set zvRtn = "X"
+    End If
+    
+    ' Check "BUSINESS"
+    If zvPhn.ARPHTYPE = "BUSINESS" Then
+      Set zvRtn = "X"
+    End If
+    ' --------------------------------------
+    
+    If zvBad <> "Y" Then
+      
+      ' ------------------------------ VERIFIED BEGIN --------------------------------------
+      If Not $$BLANK(zvPhn.ARPHVERDATE) Then
+        
+        ' -- Consumer . . .
+        If zvPhn.ARPHTYPE = "HOME" Then
+          Call zvCnsLst.Add("AVC"_zvVcnCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvVcnCnt = zvVcnCnt + 1
+        End If
+        
+        If zvPhn.ARPHTYPE = "MOBILE" Then
+          Call zvCnsLst.Add("AVC"_zvVcnCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvVcnCnt = zvVcnCnt + 1
+        End If
+        
+        If zvPhn.ARPHTYPE = "OTHER" Then
+          Call zvCnsLst.Add("AVC"_zvVcnCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvVcnCnt = zvVcnCnt + 1
+        End If
+        
+        If zvPhn.ARPHTYPE = "" Then
+          Call zvCnsLst.Add("AVC"_zvVcnCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvVcnCnt = zvVcnCnt + 1
+        End If
+        
+        
+        ' -- POE . . .
+        If zvPhn.ARPHTYPE = "WORK" Then
+          Call zvPoeLst.Add("CVP"_zvVpoCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvVpoCnt = zvVpoCnt + 1
+        End If
+        ' ------------------------------ VERIFIED END --------------------------------------
+        
+      Else
+        ' ------------------------------ UN-VERIFIED BEGIN --------------------------------------
+        ' -- Consumer . . .
+        If zvPhn.ARPHTYPE = "HOME" Then
+          Call zvCnsLst.Add("BUC"_zvCnsCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvCnsCnt = zvCnsCnt + 1
+        End If
+        
+        If zvPhn.ARPHTYPE = "MOBILE" Then
+          Call zvCnsLst.Add("BUC"_zvCnsCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvCnsCnt = zvCnsCnt + 1
+        End If
+        
+        If zvPhn.ARPHTYPE = "OTHER" Then
+          Call zvCnsLst.Add("BUC"_zvCnsCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvCnsCnt = zvCnsCnt + 1
+        End If
+        
+        If zvPhn.ARPHTYPE = "" Then
+          Call zvCnsLst.Add("BUC"_zvCnsCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvCnsCnt = zvCnsCnt + 1
+        End If
+        
+        
+        ' -- POE . . .
+        If zvPhn.ARPHTYPE = "WORK" Then
+          Call zvPoeLst.Add("DUP"_zvPoeCnt, zvPhn.ARPHID_"~"_zvPhn.ARPHTYPE)
+          Set zvPoeCnt = zvPoeCnt + 1
+        End If
+        ' ------------------------------ UN-VERIFIED END --------------------------------------
+      End If    ' VER END IF
+    End If ' BAD END IF
+  End While
+  
+  
+  Set zvCnsCnt = 1
+  Set zvPoeCnt = 1
+  
+  'cns . . .
+  While $$zvCnsLst.GetNext() <> ""
+    Set zvPhnId = ""
+    Set zvPhnId = $$PIECE(zvCnsLst.CurrentVal,"~",1)
+    If zvPhnId = zvCurPhnId Then
+      Set zvRtn = zvCnsCnt
+    End If
+    Set zvCnsCnt = zvCnsCnt + 1
+  End While
+  
+  'poe . . .
+  While $$zvPoeLst.GetNext() <> ""
+    Set zvPhnId = ""
+    Set zvPhnId = $$PIECE(zvPoeLst.CurrentVal,"~",1)
+    If zvPhnId = zvCurPhnId Then
+      Set zvRtn = "P"_zvPoeCnt
+    End If
+    Set zvPoeCnt = zvPoeCnt + 1
+  End While
+  
+  Set LBRETURN = zvRtn
+  
+End Main
+
+***End CODE
+***End LB

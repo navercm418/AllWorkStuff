@@ -1,0 +1,129 @@
+Begin Declare
+	
+	zvTmx As syTabRec.ZZTMPTRX
+	
+	zvGrd As syGrid
+	
+	
+	zvTyp As Chr
+	zvEff As Chr
+	zvBalAft As Amt
+	
+	zvAmt As Amt
+	zvBal As Amt
+	zvEAmt As Amt
+	zvEBal As Amt
+	
+	zvTstOut As Chr
+	
+	Shared HVACCONLY As Chr
+	Shared HVENCONLY As Chr
+	Shared HVBTHBAL As Chr
+	
+End Declare
+
+Begin Main
+	
+	Set zvTstOut = ""
+	
+	Set zvBal = ""
+	Set zvAmt = ""
+	
+	Set zvEAmt = ""
+	Set zvEBal = ""
+	
+	Set zvTyp = ""
+	Set zvEff = ""
+	Set zvBalAft = ""
+	
+	
+	Set zvGrd.table = "ZZTMPTRX"
+	Set zvGrd.Row = zvGrd.CurrentRow
+	
+	
+	Set zvTmx.ZZTMPTRXID = zvGrd.RowKey
+	Call zvTmx.Write()
+	Call SYREFRESHWIN("HCACCOUNT","ZZACTRXPSTWIN")
+	
+	
+	
+	Set zvTmx.ZZTMPTRXID = zvGrd.RowKey
+	
+	Set zvBal = zvTmx.ZZTMPTRXBAL
+	Set zvAmt = $$zvGrd.GetColumn("ZZTMPTRXAMT")
+	
+	Set zvEff = zvTmx.ZZTMPTRXEFCT
+	
+	'----- Acct Only ------------------
+	If HVACCONLY = "X" Then
+		
+		Set zvAmt = $$zvGrd.GetColumn("ZZTMPTRXAMT")
+		Set zvEAmt = 0
+		Set zvBal = zvTmx.ZZTMPTRXBAL
+		Set zvEBal = zvTmx.ZZTMPTRXEBAL
+		
+		If zvEff = "+" Then
+			Set zvAmt = zvAmt * -1
+		End If
+		If zvEff = "-" Then
+			Set zvAmt = zvAmt * 1
+		End If
+		If zvEff = "N" Then
+			Set zvAmt = zvAmt * 0
+		End If
+		
+	End If
+	'------------------------------
+	
+	'----- Enc Only ------------------
+	If HVENCONLY = "X" Then
+		
+		Set zvAmt = 0
+		Set zvEAmt = $$zvGrd.GetColumn("ZZTMPTRXAMT")
+		Set zvBal = zvTmx.ZZTMPTRXBAL
+		Set zvEBal = zvTmx.ZZTMPTRXEBAL
+		
+		If zvEff = "+" Then
+			Set zvEAmt = zvEAmt * -1
+		End If
+		If zvEff = "-" Then
+			Set zvEAmt = zvEAmt * 1
+		End If
+		If zvEff = "N" Then
+			Set zvEAmt = zvEAmt * 0
+		End If
+		
+	End If
+	'------------------------------
+	
+	'----- Enc Only ------------------
+	If HVBTHBAL = "X" Then
+		
+		Set zvAmt = $$zvGrd.GetColumn("ZZTMPTRXAMT")
+		Set zvEAmt = $$zvGrd.GetColumn("ZZTMPTRXAMT")
+		Set zvBal = zvTmx.ZZTMPTRXBAL
+		Set zvEBal = zvTmx.ZZTMPTRXEBAL
+		
+		If zvEff = "+" Then
+			Set zvAmt = zvAmt * -1
+			Set zvEAmt = zvEAmt * -1
+		End If
+		If zvEff = "-" Then
+			Set zvAmt = zvAmt * 1
+			Set zvEAmt = zvEAmt * 1
+		End If
+		If zvEff = "N" Then
+			Set zvAmt = zvAmt * 0
+			Set zvEAmt = zvEAmt * 0
+		End If
+		
+	End If
+	'------------------------------
+	
+	Set zvTmx.ZZTMPTRXBALAFT = zvBal - zvAmt
+	Set zvTmx.ZZTMPTRXEBALAFT = zvEBal - zvEAmt
+	
+	Call zvTmx.Write()
+	Call SYREFRESHWIN("HCACCOUNT","ZZACTRXPSTWIN")
+	
+End Main

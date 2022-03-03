@@ -1,0 +1,23 @@
+ZZLVAPIJOBLOGINFAIL
+LvApi Job Login Fail^I^0^1^RMDEV^^0^^ZZLVAPIJOBLOGINFAIL
+***Begin CODE
+Begin Declare
+  
+  zvSql As syQuery
+  
+End Declare
+
+Begin Main
+  
+  Call zvSql.Load("ZZLVAPILOGINERR")
+  Call zvSql.Execute()
+  
+  If zvSql.Items > 0 Then
+    Call SHSENDEMAIL("andrew.mccrevan@eos-cca.com", "LiveVox API Login Failure", "There are LiveVox API login failures.")
+    Call SHLVLOGIN()
+  End If
+  
+End Main
+
+***End CODE
+***End LB

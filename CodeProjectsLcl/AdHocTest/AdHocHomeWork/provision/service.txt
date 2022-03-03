@@ -1,0 +1,8 @@
+[Unit]
+Description=python server script
+
+[Service]
+ExecStart=/bin/bash /opt/application/run
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,47 @@
+ZZLVAPIWFLOADDTE
+LiveVox API stamp dates on WF^G^0^1^RMDEV^^2^^ZZLVAPIWFLOADDTE
+***Begin CODE
+Begin Declare
+  
+  zvAct As syTabRec.ARACCOUNT
+  zvRel As syTabRec.ARRELATIONSHIP
+  zvEnt As syTabRec.ARENTITY
+  zvClt As syTabRec.ARCLIENT
+  
+End Declare
+
+Begin Main
+  
+  Set zvRel.ARRELID = ""
+  Set zvAct.ARACID = ""
+  Set zvEnt.ARENID = ""
+  Set zvClt.ARCLID = ""
+  
+  
+  Set zvRel.ARRELID = ARRELID
+  Set zvAct.ARACID = zvRel.ARRELACID
+  Set zvEnt.ARENID = zvRel.ARRELENID
+  Set zvClt.ARCLID = zvRel.ARRELCLTID
+  
+  
+  If zvClt.ZZARCLLVACTV = "Y" Then
+    If (zvRel.ARRELTYPID = "PRIM") Or (zvRel.ARRELTYPID = "COMAK") Then
+      
+      Set zvAct.ZZACLVLOADDTE = $$TODAY()
+      Set zvRel.ZZRELLVLOADDTE = $$TODAY()
+      Set zvEnt.ZZENLVLOADDTE = $$TODAY()
+      
+      Call zvAct.Write()
+      Call zvRel.Write()
+      Call zvEnt.Write()
+      
+    End If
+  End If
+  
+End Main
+
+
+
+
+***End CODE
+***End LB

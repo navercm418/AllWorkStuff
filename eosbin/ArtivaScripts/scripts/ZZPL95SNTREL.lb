@@ -1,0 +1,84 @@
+ZZPL95SNTREL
+***Begin PARAMS
+zpRelId^NUMBER^N^^N
+zpOpt^CHR^N^^N
+***End PARAMS
+PL95 Sent On Relatipnship^G^0^1^RMDEV^^2^^ZZPL95SNTREL
+***Begin PARAMS
+zpRelId^NUMBER^N^^N
+zpOpt^CHR^N^^N
+***End PARAMS
+***Begin CODE
+' This script is a fuction to check if a PL95 has been sent on a relationship or last date
+'
+' Call ZZPL95SNTREL(<ARRELID>, <OPTION>)
+'
+' Par: zpRelId - Number - Relationship Id
+' Par: zpOpt - Chr - Option - SNT will return if sent, DTE will return last date
+
+Begin Declare
+  
+  zvSqlSvc As arSQL
+  zvSqlStm As Chr
+  
+  zvRelId As Chr
+  zvOpt As Chr
+  
+  zvTmpNum As Number
+  
+  zvSnt As Chr
+  zvLst As Date
+  
+End Declare
+
+Begin Main
+  
+  Set zvTmpNum = ""
+  Set zvRelId = zpRelId
+  Set zvSqlStm = ""
+  Set zvOpt = zpOpt
+  
+  ' ------------- pl95 sent -----------------------
+  If zvOpt = "SNT" Then
+    
+    Set zvSqlStm = zvSqlStm_"SELECT count(*) Total "
+    Set zvSqlStm = zvSqlStm_"FROM ARLTRHIS "
+    Set zvSqlStm = zvSqlStm_"WHERE ARLHREQID = '"_zvRelId_"' and ARLHPL95 = 'Y'"
+    
+    Call zvSqlSvc.Execute(zvSqlStm)
+    While $$zvSqlSvc.Next()
+      Set zvTmpNum = $$zvSqlSvc.Get("Total")
+    End While
+    
+    If zvTmpNum >= 1 Then
+      Set zvSnt = "Y"
+    Else
+      Set zvSnt = "N"
+    End If
+    
+    Set LBRETURN = zvSnt
+    
+  End If
+  '--------------------------------------------------------------------------------
+  
+  '---------- date --------------------------------------------------------------
+  If zvOpt = "DTE" Then
+    
+    Set zvSqlStm = zvSqlStm_"SELECT max(ARLHPRTDTE) LstDte "
+    Set zvSqlStm = zvSqlStm_"FROM ARLTRHIS "
+    Set zvSqlStm = zvSqlStm_"WHERE ARLHREQID = '"_zvRelId_"' and ARLHPL95 = 'Y'"
+    
+    Call zvSqlSvc.Execute(zvSqlStm)
+    While $$zvSqlSvc.Next()
+      Set zvLst = $$zvSqlSvc.Get("LstDte")
+    End While
+    
+    Set LBRETURN = zvLst
+    
+  End If
+  '--------------------------------------------------------------------------------
+  
+End Main
+
+***End CODE
+***End LB

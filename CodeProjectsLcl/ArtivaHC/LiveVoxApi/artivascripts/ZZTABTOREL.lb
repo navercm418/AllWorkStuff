@@ -1,0 +1,199 @@
+' parameters:
+'            zpTable = Table
+'            zpKey   = Key for table
+'
+' rel types:
+'           PRIM
+'           COMAK
+
+Begin Declare
+	
+	zvKey As Chr
+	zvTmpKey As Chr
+	zvTable As Chr
+	
+	zvEntId As Chr
+	zvActId As Chr
+	zvRelId As Chr
+	zvRelTyp As Chr
+	
+	zvRtn As Chr
+	zvCnt As Number
+	
+	zvRelActIdx As syIndex.ARRELACID
+	zvRelSetIdx As syIndex.ARRELSETID
+	zvEntIdx As syindex.ARRELENID
+	
+	' AFACCOUNT x
+	' ARACCOUNT x
+	' ARCELLPHCNST
+	' ARENTITY x
+	' ARPHONE x
+	' ARRELATIONSHIP x
+	' ARRELSET x
+	
+	' FSVCONTRACT ?
+	
+End Declare
+
+Begin Main
+	
+	Set zvKey = ""
+	Set zvTmpKey = ""
+	Set zvTable = ""
+	
+	Set zvRelId = ""
+	Set zvEntId = ""
+	Set zvActId = ""
+	Set zvRelTyp = ""
+	
+	Set zvRtn = "0"
+	Set zvCnt = ""
+	
+	Set zvRelActIdx.ARRELACID = ""
+	Set zvRelActIdx.ARRELID = ""
+	
+	Set zvEntIdx.ARRELENID = ""
+	Set zvEntIdx.ARRELID = ""
+	
+	Set zvRelSetIdx.ARRELSETID = ""
+	Set zvRelSetIdx.ARRELID = ""
+	
+	
+	Set zvKey = zpKey
+	Set zvTable = zpTable
+	
+	Select zvTable
+			
+		Case "ARACCOUNT"
+			Set zvRtn = ""
+			Set zvActId = zvKey
+			Gosub zsActActs
+			
+		Case "AFACCOUNT"
+			Set zvRtn = ""
+			Set zvActId = $$READFLD("AFACACCTID",zvKey)
+			Gosub zsActActs
+			
+		Case "ARRELATIONSHIP"
+			Set zvRtn = ""
+			Set zvRelId = zvKey
+			If $$READFLD("ZZRELLVLOADDTE",zvRelId) <> "" Then
+				Set zvRelTyp = $$READFLD("ARRELTYPID",zvRelId)
+				If (zvRelTyp = "PRIM") Or (zvRelTyp = "COMAK") Then
+					Set zvRtn = "1"
+					Set zvRtn = zvRtn_"~"_zvRelId
+				End If
+			Else
+				Set zvRtn = "0"
+			End If
+			
+		Case "ARRELSET"
+			Set zvRtn = ""
+			Gosub zsRelSet
+			
+		Case "ARENTITY"
+			Set zvRtn = ""
+			Set zvEntId = zvKey
+			Gosub zsEntActs
+			
+		Case "ARPHONE"
+			Set zvRtn = ""
+			Set zvEntId = $$READFLD("ARPHENID",zvKey)
+			Gosub zsEntActs
+			
+		Case "ARCELLPHCNST"
+			Set zvRtn = ""
+			Set zvTmpKey = $$READFLD("ARCELLPHCNSTPHID",zvKey)
+			Set zvEntId = $$READFLD("ARPHENID",zvTmpKey)
+			Gosub zsEntActs
+			
+	End Select
+	
+	Set LBRETURN = zvRtn
+	
+End Main
+'==================================================================================================================================================
+Begin Sub zsEntActs
+	
+	Set zvEntIdx.ARRELENID = zvEntId
+	Set zvEntIdx.ARRELID = ""
+	Set zvCnt = 0
+	Set zvRelId = ""
+	
+	While $$zvEntIdx.Next() <> ""
+		
+		Set zvRelId = zvEntIdx.ARRELID
+		If $$READFLD("ZZRELLVLOADDTE",zvRelId) <> "" Then
+			Set zvRelTyp = $$READFLD("ARRELTYPID",zvRelId)
+			If (zvRelTyp = "PRIM") Or (zvRelTyp = "COMAK") Then
+				Set zvRtn = zvRtn_"~"_zvRelId
+				Set zvCnt = zvCnt + 1
+			End If
+		End If
+		
+	End While
+	
+	If zvCnt = 0 Then
+		Set zvRtn = zvCnt
+	Else
+		Set zvRtn = zvCnt_zvRtn
+	End If
+	
+End Sub zsEntActs
+'==================================================================================================================================================
+Begin Sub zsRelSet
+	
+	Set zvRelSetIdx.ARRELSETID = zvKey
+	Set zvRelSetIdx.ARRELID = ""
+	Set zvCnt = 0
+	Set zvRelId = ""
+	
+	While $$zvRelSetIdx.Next() <> ""
+		
+		Set zvRelId = zvRelSetIdx.ARRELID
+		If $$READFLD("ZZRELLVLOADDTE",zvRelId) <> "" Then
+			Set zvRelTyp = $$READFLD("ARRELTYPID",zvRelId)
+			If (zvRelTyp = "PRIM") Or (zvRelTyp = "COMAK") Then
+				Set zvRtn = zvRtn_"~"_zvRelId
+				Set zvCnt = zvCnt + 1
+			End If
+		End If
+		
+	End While
+	
+	If zvCnt = 0 Then
+		Set zvRtn = zvCnt
+	Else
+		Set zvRtn = zvCnt_zvRtn
+	End If
+	
+End Sub zsRelSet
+'==================================================================================================================================================
+Begin Sub zsActActs
+	
+	Set zvRelActIdx.ARRELACID = zvActId
+	Set zvRelActIdx.ARRELID = ""
+	Set zvCnt = 0
+	Set zvRelId = ""
+	
+	While $$zvRelActIdx.Next() <> ""
+		
+		Set zvRelId = zvRelActIdx.ARRELID
+		If $$READFLD("ZZRELLVLOADDTE",zvRelId) <> "" Then
+			Set zvRelTyp = $$READFLD("ARRELTYPID",zvRelId)
+			If (zvRelTyp = "PRIM") Or (zvRelTyp = "COMAK") Then
+				Set zvRtn = zvRtn_"~"_zvRelId
+				Set zvCnt = zvCnt + 1
+			End If
+		End If
+		
+	End While
+	
+	If zvCnt = 0 Then
+		Set zvRtn = zvCnt
+	Else
+		Set zvRtn = zvCnt_zvRtn
+	End If
+	
+End Sub zsActActs

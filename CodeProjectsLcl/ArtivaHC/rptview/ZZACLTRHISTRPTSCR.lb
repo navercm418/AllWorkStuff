@@ -1,0 +1,33 @@
+Begin Declare
+	
+	zvAcc As syTabRec.HCACCOUNT
+	
+	zvRpt As syReportCR
+	
+	Shared ZVENID As Number
+	
+End Declare
+
+Begin Main
+	
+	Set LBRETURN = 0
+	
+	
+	Set ZVENID = ""
+	
+	Set zvAcc.HCACID = ""
+	Set zvAcc.HCACID = HCACID
+	
+	Set ZVENID = zvAcc.HCACENCNTRID
+	
+	
+	Set zvRpt.ExternalFile = "ZZACLTRHISTRPT"
+	Call zvRpt.HideRefresh()
+	Call zvRpt.HideExport()
+	Call zvRpt.HideGrpTree()
+	Call zvRpt.HidePrint()
+	Set zvRpt.Zoom = 128
+	Call zvRpt.AddParm("NUMBER", ZVENID)
+	Call zvRpt.Display(0)
+	
+End Main

@@ -1,0 +1,42 @@
+SHSENDEMAIL
+***Begin PARAMS
+zvParTo^CHR^N^^N
+zvParSub^CHR^N^^N
+zvParBody^CHR^N^^N
+***End PARAMS
+SHELL - Send email^G^0^1^RMDEV^^2^^
+***Begin PARAMS
+zvParTo^CHR^N^^N
+zvParSub^CHR^N^^N
+zvParBody^CHR^N^^N
+***End PARAMS
+***Begin CODE
+Begin Declare
+  
+  zvFileName As Chr
+  zvFile As syFile
+  
+  zvTo As Chr
+  zvSub As Chr
+  
+  zvQuote As Chr
+  
+End Declare
+
+Begin Main
+  
+  Set zvQuote = "'"
+  
+  Set zvTo = zvQuote_zvParTo_zvQuote
+  Set zvSub = zvQuote_zvParSub_zvQuote
+  
+  Set zvFileName = "/mnt/iscsi/RMPROD/sndml/sendemail.txt"
+  Call zvFile.create(zvFileName)
+  Call zvFile.write(zvParBody)
+  
+  Call SYSHELL("/usr/local/bin/python3.6 /mnt/iscsi/RMPROD/sndml/sendemail.py "_zvTo_" "_zvSub_" "_zvQuote_"<FILE>"_zvQuote,1)
+  
+End Main
+
+***End CODE
+***End LB

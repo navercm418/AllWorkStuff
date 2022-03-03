@@ -1,0 +1,69 @@
+Begin Declare
+	
+	zvRtn As Chr
+	
+	zvGrp As Chr
+	zvRelId As Chr
+	zvLen As Number
+	zvCnt As Number
+	
+	zvTable As Chr
+	zvTabId As Chr
+	
+	zvLvUdt As syTabRec.ZZLVAPIUPDATE
+	zvLvUdtGrpIdx As syIndex.ZZLVUDTGRPIDX
+	zzLvGrpId As Chr
+	
+End Declare
+Begin Main
+	
+	Set zvRtn = "0"
+	
+	If $$ZZLVAPIGETOPT("UPDATE") = "ON" Then
+		
+		'################# UPDATE FIELDS LIST #################
+		Set zvRtn = zvRtn_"ARRELUSERID:"_ARRELUSERID_"|"
+		Set zvRtn = zvRtn_"ARRELPHASE:"_ARRELPHASE_"|"
+		Set zvRtn = zvRtn_"ARRELSTATUSID:"_ARRELSTATUSID_"|"
+		Set zvRtn = zvRtn_"ARRELWAITDTE:"_ARRELWAITDTE_"|"
+		Set zvRtn = zvRtn_"ARRELCONLVL:"_ARRELCONLVL_"|"
+		Set zvRtn = zvRtn_"ARRELLEAD:"_ARRELLEAD_"|"
+		'######################################################
+		
+		Set zvRtn = "1"
+		
+		Set zvTable = ""
+		Set zvTabId = ""
+		Set zvGrp = ""
+		
+		Set zvTable = "ARRELATIONSHIP"
+		Set zvTabId = ARRELID
+		Set zvGrp = $$ZZTABTOREL(zvTable, zvTabId)
+		If zvGrp <> "0" Then
+			
+			Set zvLvUdtGrpIdx.ZZLVUDTGRPIDX = ""
+			Set zvLvUdtGrpIdx.ZZLVUDTID = ""
+			Set zvLvUdt.ZZLVUDTID = ""
+			
+			Set zvLvUdtGrpIdx.ZZLVUDTGRPIDX = zvGrp
+			Set zvLvUdtGrpIdx.ZZLVUDTID = ""
+			
+			' clear group hist and keep latest info..
+			While $$zvLvUdtGrpIdx.Next() <> ""
+				Set zvLvUdt.ZZLVUDTID = zvLvUdtGrpIdx.ZZLVUDTID
+				Call zvLvUdt.Delete()
+			End While
+			
+			Set zvLvUdt.ZZLVUDTID = ""
+			Call zvLvUdt.Create()
+			Set zvLvUdt.ZZLVUDTTABLE = zvTable
+			Set zvLvUdt.ZZLVUDTTABID = zvTabId
+			Set zvLvUdt.ZZLVUDTGRPIDX = zvGrp
+			Call zvLvUdt.Write()
+			
+		End If
+	End If
+	
+	Set LBRETURN = zvRtn
+	
+End Main

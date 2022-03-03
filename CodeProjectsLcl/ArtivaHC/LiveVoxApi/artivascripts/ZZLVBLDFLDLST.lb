@@ -1,0 +1,153 @@
+' parameters:
+'            zpRelId = Relationship Id
+
+Begin Declare
+	
+	' real
+	zvRel As syTabRec.ARRELATIONSHIP
+	zvLvf As syTabRec.ZZLVCNTMGRFLDS
+	
+	zvRelId As Chr
+	zvSetId As Chr
+	zvActId As Chr
+	zvAftId As Chr
+	zvEntId As Chr
+	zvCltid As Chr
+	'FSVECONTRACT-ZZVECPORTFOLIO
+	zvCntId As Chr
+	
+	' lv fld tab
+	zvCurId As Chr
+	zvTab As Chr
+	zvFld As Chr
+	zvTyp As Chr
+	zvCat As Chr
+	zvVal As Chr
+	zvTmpDte As Date
+	zvFldCnt As Number
+	
+	zvFldStr As Chr
+	
+End Declare
+
+Begin Main
+	
+	Set zvLvf.ZZLVCMID = ""
+	Set zvRel.ARRELID = ""
+	Set zvRelId = ""
+	Set zvSetId = ""
+	Set zvActId = ""
+	Set zvAftId = ""
+	Set zvEntId = ""
+	Set zvCltid = ""
+	Set zvFldStr = ""
+	Set zvTmpDte = ""
+	Set zvFldCnt = ""
+	
+	' set rec ids
+	Set zvRelId = zpRelId
+	Set zvRel.ARRELID = zvRelId
+	Set zvSetId = zvRel.ARRELSETID
+	Set zvActId = zvRel.ARRELACID
+	Set zvAftId = $$READFLD("ARACFINACCTID", zvActId)
+	Set zvEntId = zvRel.ARRELENID
+	Set zvCltid = zvRel.ARRELCLTID
+	
+	
+	' ---- build list
+	Set zvFldStr = "["
+	Set zvFldCnt = 1
+	
+	While $$zvLvf.Next() <> ""
+		If zvLvf.ZZLVCMTRACK = "Y" Then
+			
+			Set zvTab = zvLvf.ZZLVCMRMTABLE
+			
+			Gosub zsGetTabId
+			
+			Gosub zsAddFld
+			
+		End If
+	End While
+	
+	Set zvFldStr = zvFldStr_"]"
+	Set LBRETURN = zvFldStr
+	
+End Main
+'==============================================================================================================================================
+Begin Sub zsAddFld
+	
+	' <api_nam> <value> <cat>
+	' [lastName~TstLnm3~PER,amountToSpeak~333.33~DEF,COL5~05/30/2021~CST,...]
+	
+	Set zvFld = zvLvf.ZZLVCMRMFLD
+	Set zvTyp = zvLvf.ZZLVCMFLDTYP
+	Set zvCat = zvLvf.ZZLVCMFLDCAT
+	Set zvVal = $$READFLD(zvFld,zvCurId)
+	
+	If $$BLANK(zvVal) Then
+		
+		If zvTyp = "NUMBER" Then
+			Set zvVal = 0
+		End If
+		
+		If zvTyp = "STRING" Then
+			Set zvVal = ""
+		End If
+		
+		If zvTyp = "DATE" Then
+			Set zvVal = "01/01/1900"
+		End If
+		
+	Else
+		
+		If zvTyp = "DATE" Then
+			Set zvTmpDte = zvVal
+			Set zvVal = $$FMTDATE(zvTmpDte,"MM/DD/YYYY")
+		End If
+		
+	End If
+	
+	If zvFldCnt = 1 Then
+		Set zvFldStr = zvFldStr_zvLvf.ZZLVCMAPIFLD_"~"_zvVal_"~"_zvCat
+	Else
+		Set zvFldStr = zvFldStr_","_zvLvf.ZZLVCMAPIFLD_"~"_zvVal_"~"_zvCat
+	End If
+	
+	Set zvFldCnt = zvFldCnt + 1
+	
+End Sub zsAddFld
+'==============================================================================================================================================
+Begin Sub zsGetTabId
+	
+	Set zvCurId = ""
+	
+	Select zvTab
+			
+		Case "AFACCOUNT"
+			Set zvCurId = ""
+			Set zvCurId = zvAftId
+			
+		Case "ARACCOUNT"
+			Set zvCurId = ""
+			Set zvCurId = zvActId
+			
+		Case "ARCLIENT"
+			Set zvCurId = ""
+			Set zvCurId = zvCltid
+			
+		Case "ARENTITY"
+			Set zvCurId = ""
+			Set zvCurId = zvEntId
+			
+		Case "ARRELATIONSHIP"
+			Set zvCurId = ""
+			Set zvCurId = zvRelId
+			
+		Case "ARRELSET"
+			Set zvCurId = ""
+			Set zvCurId = zvSetId
+			
+	End Select
+	
+End Sub zsGetTabId

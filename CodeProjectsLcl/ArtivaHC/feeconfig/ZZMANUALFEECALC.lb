@@ -1,0 +1,217 @@
+Begin Declare
+	
+	zvEnc As syTabRec.HCENCOUNTER
+	zvFac As syTabRec.HCFACILITY
+	zvFeeCfgTn As syTabRec.HCFEECONFIGURATION
+	zvFeeCfg As syTabRec.HCFEECONFIG
+	
+	zvTypIdx As syIndex.HCFEFCID
+	
+	zvFeeId As Chr
+	zvFeeTypeFndId As Number
+	
+	zvLoopStop As Number
+	
+End Declare
+
+Begin Main
+	
+	Set zvFeeId = ""
+	
+	Set zvLoopStop = 0
+	
+	Set zvEnc.HCENID = ""
+	Set zvFac.HCFAID = ""
+	
+	Set zvEnc.HCENID = ZVENID
+	Set zvFac.HCFAID = zvEnc.HCENFACILITY
+	
+	'New Suter WC rates (current and ongoing)
+	'    Day 1   -  59    4.5%
+	'    Day 60  -  89    6.0%
+	'    Day 90  -  119    7.0%
+	'    Day 120 -  149    8.0%
+	'    Day 150 +        8.5%
+	
+	If ZVSTRS = "SET" Then
+		'Print " ZZMANUALFEECALC Set start"
+		'============================= Facility Set ==============================
+		'Day 1 – 59 Age at Placement = 4.5%
+		If (zvEnc.ZZENCLIAGEPLCT > 0) And (zvEnc.ZZENCLIAGEPLCT < 60) Then
+			
+			Set zvFac.HCFAFEECFGID = ""
+			Set zvFac.HCFAFEECFGID = "TPSUTWC4-5"
+			
+		End If
+		
+		'Day 60-89 Age at Placement = 6.0%
+		If (zvEnc.ZZENCLIAGEPLCT > 59) And (zvEnc.ZZENCLIAGEPLCT < 90) Then
+			
+			Set zvFac.HCFAFEECFGID = ""
+			Set zvFac.HCFAFEECFGID = "TPSUTWC6"
+			
+		End If
+		
+		'Day 90-119 Age at Placement = 7.0%
+		If (zvEnc.ZZENCLIAGEPLCT > 89) And (zvEnc.ZZENCLIAGEPLCT < 120) Then
+			
+			Set zvFac.HCFAFEECFGID = ""
+			Set zvFac.HCFAFEECFGID = "TPSUTWC7"
+			
+		End If
+		
+		'Day 120-149 Age at Placement = 8.0%
+		If (zvEnc.ZZENCLIAGEPLCT > 119) And (zvEnc.ZZENCLIAGEPLCT < 150) Then
+			
+			Set zvFac.HCFAFEECFGID = ""
+			Set zvFac.HCFAFEECFGID = "TPSUTWC8"
+			
+		End If
+		
+		'Day 150 + Age at Placement = 8.5%
+		If zvEnc.ZZENCLIAGEPLCT > 149 Then
+			
+			Set zvFac.HCFAFEECFGID = ""
+			Set zvFac.HCFAFEECFGID = "TPSUTWC8-5"
+			
+		End If
+		'Print " ZZMANUALFEECALC Set end"
+	End If
+	
+	
+	'============================== Facility Re Set ================================
+	If ZVSTRS = "RESET" Then
+		
+		'Print " ZZMANUALFEECALC Re Set start"
+		
+		Set zvFac.HCFAFEECFGID = ""
+		Set zvFac.HCFAFEECFGID = "TPSUTWCSTD"
+		
+		'Print " ZZMANUALFEECALC Re Set end"
+		
+	End If
+	
+	'================== recalc fee =================
+	If ZVSTRS = "RECALC" Then
+		
+		'Day 1 – 59 Age at Placement = 5%
+		If (zvEnc.ZZENCLIAGEPLCT > 0) And (zvEnc.ZZENCLIAGEPLCT < 60) Then
+			
+			Set zvFeeId = "TPSUTWC5"
+			
+			'check trx type begin
+			Set zvFeeCfgTn.HCFCID = zvFeeId
+			
+			Set zvTypIdx.HCFEFCID = zvFeeId
+			
+			Set zvTypIdx.HCFEID   = ""
+			
+			While (Not $$BLANK($$zvTypIdx.Next())) And (zvLoopStop < 11)
+				
+				Set zvLoopStop = zvLoopStop + 1
+				
+				Set zvFeeCfg.HCFEID = zvTypIdx.HCFEID
+				
+				If zvFeeCfg.HCFETRANSCODE = ZVTRXTYP Then
+					Set     zvFeeTypeFndId = zvFeeCfg.HCFEID
+				End If
+				
+			End While
+			'check trx type end
+			
+		End If
+		'Day 1 – 59 Age at Placement = 5%
+		'---------------------------------------------------------
+		'Day 60-89 Age at Placement = 7%
+		If (zvEnc.ZZENCLIAGEPLCT > 59) And (zvEnc.ZZENCLIAGEPLCT < 90) Then
+			
+			Set zvFeeId = "TPSUTWC7"
+			
+			'check trx type begin
+			Set zvFeeCfgTn.HCFCID = zvFeeId
+			
+			Set zvTypIdx.HCFEFCID = zvFeeId
+			
+			Set zvTypIdx.HCFEID   = ""
+			
+			While (Not $$BLANK($$zvTypIdx.Next())) And (zvLoopStop < 11)
+				
+				Set zvLoopStop = zvLoopStop + 1
+				
+				Set zvFeeCfg.HCFEID = zvTypIdx.HCFEID
+				
+				If zvFeeCfg.HCFETRANSCODE = ZVTRXTYP Then
+					Set     zvFeeTypeFndId = zvFeeCfg.HCFEID
+				End If
+				
+			End While
+			'check trx type end
+			
+		End If
+		'Day 60-89 Age at Placement = 7%
+		'---------------------------------------------------------
+		'Day 90-120 Age at Placement = 9%
+		If (zvEnc.ZZENCLIAGEPLCT > 89) And (zvEnc.ZZENCLIAGEPLCT < 121) Then
+			
+			Set zvFeeId = "TPSUTWC9"
+			
+			'check trx type begin
+			Set zvFeeCfgTn.HCFCID = zvFeeId
+			
+			Set zvTypIdx.HCFEFCID = zvFeeId
+			
+			Set zvTypIdx.HCFEID   = ""
+			
+			While (Not $$BLANK($$zvTypIdx.Next())) And (zvLoopStop < 11)
+				
+				Set zvLoopStop = zvLoopStop + 1
+				
+				Set zvFeeCfg.HCFEID = zvTypIdx.HCFEID
+				
+				If zvFeeCfg.HCFETRANSCODE = ZVTRXTYP Then
+					Set     zvFeeTypeFndId = zvFeeCfg.HCFEID
+				End If
+				
+			End While
+			'check trx type end
+			
+		End If
+		'Day 90-120 Age at Placement = 9%
+		'---------------------------------------------------------
+		'Day 121+ Age at Placement = 10%
+		If zvEnc.ZZENCLIAGEPLCT > 120 Then
+			
+			Set zvFeeId = "TPSUTWC10"
+			
+			'check trx type begin
+			Set zvFeeCfgTn.HCFCID = zvFeeId
+			
+			Set zvTypIdx.HCFEFCID = zvFeeId
+			
+			Set zvTypIdx.HCFEID   = ""
+			
+			While (Not $$BLANK($$zvTypIdx.Next())) And (zvLoopStop < 11)
+				
+				Set zvLoopStop = zvLoopStop + 1
+				
+				Set zvFeeCfg.HCFEID = zvTypIdx.HCFEID
+				
+				If zvFeeCfg.HCFETRANSCODE = ZVTRXTYP Then
+					Set     zvFeeTypeFndId = zvFeeCfg.HCFEID
+				End If
+				
+			End While
+			'check trx type end
+			
+		End If
+		'Day 121+ Age at Placement = 10%
+		
+		If zvLoopStop >= 10 Then
+			Print "No fee for this transaction type: HCENPTACCT= "_zvEnc.HCENPTACCT_"| Trans Type= "_ZVTRXTYP
+		End If
+		
+		Set LBRETURN = zvFeeTypeFndId
+		
+	End If
+	
+End Main

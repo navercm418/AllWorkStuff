@@ -1,0 +1,46 @@
+ZZA2EXTST
+***Begin PARAMS
+zvParTst1^CHR^N^^N
+zvParTst2^CHR^N^^N
+***End PARAMS
+script export test^G^0^1^RMDEV^^2^^ZZA2EXTST
+***Begin PARAMS
+zvParTst1^CHR^N^^N
+zvParTst2^CHR^N^^N
+***End PARAMS
+***Begin CODE
+' this is a test script #1
+' 11/30/20 - 11:30am
+' 11/30/20 - 5:31pm
+'    1st test from Artiva
+' 4/27/21 - 10:45am
+
+Begin Declare
+  
+  ' declare section
+  zvTest1 As Chr
+  zvTest2 As Chr
+  
+  zvTest3 As Number
+  
+  zvPars As Chr
+  
+End Declare
+
+Begin Main
+  
+  ' set vars
+  Set zvTest1 = "test1ab"
+  Set zvTest2 = "test2ab"
+  Set zvTest3 = 36
+  
+  Set zvPars = "par1:"_zvParTst1
+  Set zvPars = zvPars_", par2:"_zvParTst2
+  
+  ' this is test script # 1
+  ' this is test script # 2
+  
+End Main
+
+***End CODE
+***End LB

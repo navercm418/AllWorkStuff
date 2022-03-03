@@ -1,0 +1,47 @@
+Begin Declare
+	
+	Shared ZVFACW As Chr
+	Shared ZVSTATW As Chr
+	Shared ZVPAYIDW As Chr
+	Shared ZVFNCLSW As Chr
+	
+	Shared ZVFAC As Chr
+	Shared ZVSTAT As Chr
+	Shared ZVPAYID As Chr
+	Shared ZVFNCLS As Chr
+	
+End Declare
+Begin Main
+	
+	Set LBRETURN = 0
+	
+	If Not $$BLANK(ZVFNCLSW) Then
+		
+		If ZVFAC = ZVFACW Then
+			If ZVSTAT = ZVSTATW Then
+				If ZVPAYID = ZVPAYIDW Then
+					If ZVFNCLSW = ZVFNCLS Then
+						Set LBRETURN = 1
+					End If
+				End If
+			End If
+		End If
+		
+	Else
+		
+		If ZVFAC = ZVFACW Then
+			If ZVSTAT = ZVSTATW Then
+				If ZVPAYID = ZVPAYIDW Then
+					Set LBRETURN = 1
+				End If
+			End If
+		End If
+		
+	End If
+	
+	
+	'Print " Win = "_ZVFACW_" - "_ZVSTATW_" - "_ZVPAYIDW
+	'Print " Pf  = "_ZVFAC_" - "_ZVSTAT_" - "_ZVPAYID
+	'Print " Acc = "_HCACFACILITY_" - "_HCACCODE_" - "_HCACPAYERID
+	
+End Main

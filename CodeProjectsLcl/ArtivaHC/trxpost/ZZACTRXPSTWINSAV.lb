@@ -1,0 +1,609 @@
+' 05/04/2020 NRG  - Updated to handle new values for field ZZTRCHANNEL  Task 605
+
+Begin Declare
+	
+	zvAcc As syTabRec.HCACCOUNT
+	'zvEnc As syTabRec.HCENCOUNTER
+	zvTrx As syTabRec.HCTRANSACTIONS
+	zvTmx As syTabRec.ZZTMPTRX
+	
+	zvTmxIdx As syIndex.ZZTMPTRXMAINACCT
+	
+	zvGrd As syGrid
+	
+	zvTmpMainAcct As Number
+	zvTmpAmt As Amt
+	zvTmpTot As Amt
+	zvfacstr As Chr
+	zvErrCnt As Number
+	zvErrMsg As Chr
+	zvTmpErrMsg As Chr
+	zvTmpAmtToPst As Amt
+	zvTmpPst1 As Number
+	zvTmpPst2 As Number
+	
+	Shared HVACCONLY As Chr
+	Shared HVENCONLY As Chr
+	Shared HVBTHBAL As Chr
+	
+	Shared HVTOTALAMT As Amt
+	Shared ZVTRCHANNEL As Chr                ' variable for transaction Channel
+	
+	'---------------------------------
+	'- for fee posting -
+	
+	hvUStats As HCUSERSTATS                 ' Setup stat service
+	hvAcct As syTabRec.HCACCOUNT            ' Tabrec for hcaccount table
+	hvPmtArrg As syTabRec.HCPMTARRG         ' Tabrec for payment arrangment table
+	hvTran As syTabRec.HCTRANSACTIONS       ' Tabrec for transaction table
+	hvFeeTab As syTabRec.HCFEECONFIG        ' Tabrec for Fee Config
+	hvFacility As syTabRec.HCFACILITY       ' Tabrec for Facility
+	hvEnc As syTabRec.HCENCOUNTER           ' Tabrec for Encounter
+	hvAcctIdx As syIndex.HCACENCNTRID       ' Account Table R-Field to Encounter table
+	hvTranIdx As syIndex.HCTRACCOUNTID      ' Transaction Table R-Field to Account table
+	hvFeeIdx As syIndex.HCFEFCID            ' Config Fee Table R-Field to Fee Configuration
+	hvRevFound As Number                    ' Determines if a reversal transaction was found
+	hvPmtRevFound As Number                 ' Determines if a payment reversal transaction was found
+	hvRevNote As Chr                        ' Contains the note added to the account if a transaction couldn't be found for reversal
+	hvFeeTypeFndId As Number                ' Variable to stop loop
+	hvDefaultId As Number                   ' Variable to hold fee config id for DEFAULT
+	hvFeeDesc As Chr                        ' Variable to hold fee description
+	hvFeeRate As Amt                        ' Variable to hold fee rate
+	hvGenFeeFlag As Chr                     ' Variable to hold value of Generate Fee field
+	
+	hvDenIdx As syIndex.HCDNDACID           ' Index for the account on the denial log table.
+	hvDen As syTabRec.HCDNDETAILLOG         ' Tabrec for the denial detail log table.
+	hvDenID As Chr                          ' Variable to hold the Denial ID to log the transaction.
+	hvDenDte As Date                        ' Variable to hold the Denial Date to log the transaction.
+	hvVendStats As hcVendStats              ' Vendor Batch Statistics
+	
+End Declare
+
+Begin Main
+	
+	Set zvTmpPst1 = ""
+	Set zvTmpPst2 = ""
+	Set zvTmpAmtToPst = ""
+	Set zvTmpTot = ""
+	Set zvErrMsg = ""
+	Set zvErrCnt = ""
+	Set zvTmpAmt = ""
+	Set zvTmpMainAcct = ""
+	
+	Set hvAcct.HCACID = ""
+	Set hvEnc.HCENID = ""
+	Set zvTrx.HCTRID = ""
+	Set zvTmx.ZZTMPTRXID = ""
+	
+	Set zvAcc.HCACID = HCACID
+	Set zvTmpMainAcct = HCACID
+	
+	
+	If $$CONFIRM("Do you wish to post the transactions?","N") Then
+		
+		Set zvGrd.table = "ZZTMPTRX"
+		Set zvGrd.Row = ""
+		
+		Gosub PreChecks
+		
+		If LBRETURN = 1 Then
+			
+			While $$zvGrd.Next() <> ""
+				
+				Call SYREFRESHWIN("HCACCOUNT","ZZACTRXPSTWIN")
+				Set zvTmx.ZZTMPTRXID = zvGrd.RowKey
+				
+				
+				If zvTmx.ZZTMPTRXAMT >= 0.01 Then
+					
+					If HVACCONLY = "X" Then
+						Gosub PostTrxAcc
+					End If
+					
+					If HVENCONLY = "X" Then
+						Gosub PostTrxEnc
+					End If
+					
+					If HVBTHBAL = "X" Then
+						Gosub PostTrxBth
+					End If
+					
+				End If
+				
+			End While
+			
+		End If
+		
+	Else
+		Set LBRETURN = 0
+	End If
+	
+End Main
+'__________________________________________________________________________________________________________________________
+'__________________________________________________________________________________________________________________________
+Begin Sub PreChecks
+	
+	
+	While $$zvGrd.Next() <> ""
+		
+		Call SYREFRESHWIN("HCACCOUNT","ZZACTRXPSTWIN")
+		Set zvTmx.ZZTMPTRXID = zvGrd.RowKey
+		
+		Set zvTmpTot = zvTmpTot + zvTmx.ZZTMPTRXAMT
+		
+		
+		If ($$BLANK(zvTmx.ZZTMPTRXAMT)) Or (zvTmx.ZZTMPTRXAMT < 0) Then
+			
+			Set zvTmpErrMsg = zvTmpErrMsg_"A"
+			Set zvErrCnt = zvErrCnt + 1
+			
+		End If
+		
+		If $$BLANK(zvTmx.ZZTMPTRXDTE) Then
+			
+			Set zvTmpErrMsg = zvTmpErrMsg_"D"
+			Set zvErrCnt = zvErrCnt + 1
+			
+		End If
+		
+		If $$BLANK(zvTmx.ZZTMPTRXTYPE) Then
+			
+			Set zvTmpErrMsg = zvTmpErrMsg_"T"
+			Set zvErrCnt = zvErrCnt + 1
+			
+		End If
+		
+	End While
+	
+	Set zvTmpAmtToPst = HVTOTALAMT - zvTmpTot
+	
+	If zvTmpAmtToPst > 0.50 Then
+		
+		Set zvTmpErrMsg = zvTmpErrMsg_"B"
+		Set zvErrCnt = zvErrCnt + 1
+		
+	End If
+	
+	If zvTmpAmtToPst < -0.50 Then
+		Set zvTmpErrMsg = zvTmpErrMsg_"B"
+		Set zvErrCnt = zvErrCnt + 1
+		
+	End If
+	
+	If zvTmpErrMsg [ "B" Then
+		
+		Set zvTmpPst1 = $$PIECE(zvTmpAmtToPst,".",1)
+		Set zvTmpPst2 = $$PIECE(zvTmpAmtToPst,".",2)
+		Set zvTmpPst2 = $$EXTRACT(zvTmpPst2,1,2)
+		
+		
+		If zvTmpPst2 > 0 Then
+			Set zvTmpAmtToPst = "$"_zvTmpPst1_"."_zvTmpPst2
+		Else
+			Set zvTmpAmtToPst = "$"_zvTmpPst1_".00"
+		End If
+		
+		Set zvErrMsg = zvErrMsg_" "_zvTmpAmtToPst_" Left To Post"_SYCR_SYLF
+		
+	End If
+	
+	If zvTmpErrMsg [ "A" Then
+		Set zvErrMsg = zvErrMsg_" Amount is blank or negative"_SYCR_SYLF
+	End If
+	
+	If zvTmpErrMsg [ "D" Then
+		Set zvErrMsg = zvErrMsg_" Date is blank"_SYCR_SYLF
+	End If
+	
+	If zvErrCnt > 0 Then
+		Call MSGBOX(zvErrMsg)
+		Set LBRETURN = 0
+	End If
+	
+End Sub PreChecks
+'__________________________________________________________________________________________________________________________
+'__________________________________________________________________________________________________________________________
+
+Begin Sub PostTrxAcc
+	
+	Call zvTrx.Create()
+	
+	Read HCTTCAT With zvTmx.ZZTMPTRXTYPE
+	Read HCTTEFFECT With zvTmx.ZZTMPTRXTYPE
+	
+	If HCTTEFFECT = "+" Then
+		Set zvTmpAmt = zvTmx.ZZTMPTRXAMT * 1
+	End If
+	
+	If HCTTEFFECT = "-" Then
+		Set zvTmpAmt = zvTmx.ZZTMPTRXAMT * -1
+	Else
+		Set zvTmpAmt = zvTmx.ZZTMPTRXAMT
+	End If
+	
+	
+	'Set zvTrx.HCTRENCNTRID = zvTmx.ZZTMPTRXENC
+	Set zvTrx.HCTRACCOUNTID = zvTmx.ZZTMPTRXACCT
+	Set zvTrx.HCTRFACILITY = zvAcc.HCACFACILITY
+	Set zvTrx.HCTRPTACCT = zvTmx.ZZTMPTRXPTACCT
+	Set zvTrx.HCTRPAYER = zvTmx.ZZTMPTRXPYR
+	Set zvTrx.ZZTRACCTIEFLD = zvAcc.HCACTIEFLD
+	
+	Set zvTrx.HCTRTOTALPMT = HVTOTALAMT
+	Set zvTrx.HCTRAMOUNT = zvTmpAmt
+	
+	Set zvTrx.HCTRTYPE = zvTmx.ZZTMPTRXTYPE
+	Set zvTrx.HCTRCAT = HCTTCAT
+	Set zvTrx.HCTREFFECT = HCTTEFFECT
+	
+	Set zvTrx.HCTRDATE = $$TODAY()
+	Set zvTrx.HCTREFFDATE = zvTmx.ZZTMPTRXDTE
+	
+	Set zvTrx.HCTRENTDTE = $$TODAY()
+	Set zvTrx.HCTRENTTIME = $$NOW()
+	Set zvTrx.HCTRLOADDATE = $$TODAY()
+	
+	Set zvTrx.HCTRCOMMENT = zvTmx.ZZTMPTRXCOMMENT
+	Set zvTrx.HCTRSOURCE = "Manual"
+	
+	Set zvTrx.HCTRCASHIER = SYUSERID
+	
+	Set zvTrx.ZZTRFILENAME = "Manual Post By "_SYUSERID
+	
+	' Commented out existing logic for ZZTRCHANNEL as part of task 605
+	'If $$BLANK(zvTmx.ZZTMPTRXCOMMENT) Then
+	'    Set zvTrx.ZZTRCHANNEL = "Manual Post"
+	'Else
+	'    Set zvTrx.ZZTRCHANNEL = zvTmx.ZZTMPTRXCOMMENT
+	'End If
+	
+	' Set the source/channel for the transaction
+	Set zvTrx.ZZTRCHANNEL = ZVTRCHANNEL
+	
+	
+	Call zvTrx.Write()
+	
+	Gosub PostFee
+	
+	Call zvTrx.Write()
+	
+End Sub PostTrxAcc
+'__________________________________________________________________________________________________________________________
+'__________________________________________________________________________________________________________________________
+Begin Sub PostTrxEnc
+	
+	Call zvTrx.Create()
+	
+	Read HCTTCAT With zvTmx.ZZTMPTRXTYPE
+	Read HCTTEFFECT With zvTmx.ZZTMPTRXTYPE
+	
+	If HCTTEFFECT = "-" Then
+		Set zvTmpAmt = zvTmx.ZZTMPTRXAMT * -1
+	Else
+		Set zvTmpAmt = zvTmx.ZZTMPTRXAMT
+	End If
+	
+	
+	Set zvTrx.HCTRENCNTRID = zvTmx.ZZTMPTRXENC
+	'Set zvTrx.HCTRACCOUNTID = zvTmx.ZZTMPTRXACCT
+	Set zvTrx.HCTRFACILITY = zvAcc.HCACFACILITY
+	Set zvTrx.HCTRPTACCT = zvTmx.ZZTMPTRXPTACCT
+	Set zvTrx.HCTRPAYER = zvTmx.ZZTMPTRXPYR
+	Set zvTrx.ZZTRACCTIEFLD = zvAcc.HCACTIEFLD
+	
+	Set zvTrx.HCTRTOTALPMT = HVTOTALAMT
+	Set zvTrx.HCTRAMOUNT = zvTmpAmt
+	
+	Set zvTrx.HCTRTYPE = zvTmx.ZZTMPTRXTYPE
+	Set zvTrx.HCTRCAT = HCTTCAT
+	Set zvTrx.HCTREFFECT = HCTTEFFECT
+	
+	Set zvTrx.HCTRDATE = $$TODAY()
+	Set zvTrx.HCTREFFDATE = zvTmx.ZZTMPTRXDTE
+	
+	Set zvTrx.HCTRENTDTE = $$TODAY()
+	Set zvTrx.HCTRENTTIME = $$NOW()
+	Set zvTrx.HCTRLOADDATE = $$TODAY()
+	
+	Set zvTrx.HCTRCOMMENT = zvTmx.ZZTMPTRXCOMMENT
+	Set zvTrx.HCTRSOURCE = "Manual"
+	
+	Set zvTrx.HCTRCASHIER = SYUSERID
+	
+	Set zvTrx.ZZTRFILENAME = "Manual Post By "_SYUSERID
+	
+	' Commented out existing logic for ZZTRCHANNEL as part of task 605
+	'If $$BLANK(zvTmx.ZZTMPTRXCOMMENT) Then
+	'    Set zvTrx.ZZTRCHANNEL = "Manual Post"
+	'Else
+	'    Set zvTrx.ZZTRCHANNEL = zvTmx.ZZTMPTRXCOMMENT
+	'End If
+	
+	' Set the source/channel for the transaction
+	Set zvTrx.ZZTRCHANNEL = ZVTRCHANNEL
+	
+	Call zvTrx.Write()
+	
+	Gosub PostFee
+	
+	Call zvTrx.Write()
+	
+End Sub PostTrxEnc
+'__________________________________________________________________________________________________________________________
+'__________________________________________________________________________________________________________________________
+Begin Sub PostTrxBth
+	
+	Call zvTrx.Create()
+	
+	Read HCTTCAT With zvTmx.ZZTMPTRXTYPE
+	Read HCTTEFFECT With zvTmx.ZZTMPTRXTYPE
+	Audit "HCTTCAT is "_HCTTCAT_" and hctteffect is "_HCTTEFFECT
+	
+	If HCTTEFFECT = "-" Then
+		Set zvTmpAmt = zvTmx.ZZTMPTRXAMT * -1
+	Else
+		Set zvTmpAmt = zvTmx.ZZTMPTRXAMT
+	End If
+	
+	
+	Set zvTrx.HCTRENCNTRID = zvTmx.ZZTMPTRXENC
+	Set zvTrx.HCTRACCOUNTID = zvTmx.ZZTMPTRXACCT
+	Set zvTrx.HCTRFACILITY = zvAcc.HCACFACILITY
+	Set zvTrx.HCTRPTACCT = zvTmx.ZZTMPTRXPTACCT
+	Set zvTrx.HCTRPAYER = zvTmx.ZZTMPTRXPYR
+	Set zvTrx.ZZTRACCTIEFLD = zvAcc.HCACTIEFLD
+	
+	Set zvTrx.HCTRTOTALPMT = HVTOTALAMT
+	Set zvTrx.HCTRAMOUNT = zvTmpAmt
+	
+	Set zvTrx.HCTRTYPE = zvTmx.ZZTMPTRXTYPE
+	Set zvTrx.HCTRCAT = HCTTCAT
+	Set zvTrx.HCTREFFECT = HCTTEFFECT
+	
+	Set zvTrx.HCTRDATE = $$TODAY()
+	Set zvTrx.HCTREFFDATE = zvTmx.ZZTMPTRXDTE
+	
+	Set zvTrx.HCTRENTDTE = $$TODAY()
+	Set zvTrx.HCTRENTTIME = $$NOW()
+	Set zvTrx.HCTRLOADDATE = $$TODAY()
+	
+	Set zvTrx.HCTRCOMMENT = zvTmx.ZZTMPTRXCOMMENT
+	Set zvTrx.HCTRSOURCE = "Manual"
+	
+	Set zvTrx.HCTRCASHIER = SYUSERID
+	
+	Set zvTrx.ZZTRFILENAME = "Manual Post By "_SYUSERID
+	
+	' Commented out existing logic for ZZTRCHANNEL as part of task 605
+	'If $$BLANK(zvTmx.ZZTMPTRXCOMMENT) Then
+	'    Set zvTrx.ZZTRCHANNEL = "Manual Post"
+	'Else
+	'    Set zvTrx.ZZTRCHANNEL = zvTmx.ZZTMPTRXCOMMENT
+	'End If
+	
+	' Set the source/channel for the transaction
+	Set zvTrx.ZZTRCHANNEL = ZVTRCHANNEL
+	
+	Call zvTrx.Write()
+	
+	Gosub PostFee
+	
+	Call zvTrx.Write()
+	
+End Sub PostTrxBth
+'__________________________________________________________________________________________________________________________
+'__________________________________________________________________________________________________________________________
+Begin Sub PostFee
+	
+	
+	
+	' Setup account and encounter tabrecs.
+	Set hvAcct.HCACID = zvTrx.HCTRACCOUNTID
+	Set hvEnc.HCENID = zvTrx.HCTRENCNTRID
+	Audit "encounter is "_hvEnc.hcenid
+	'Print "FEE RAN: TRID= "_zvTrx.HCTRID_"|CAT= "_zvTrx.HCTRCAT
+	
+	' Check if the Generate Fee flag is populated and not set to "N" for the transaction type.
+	Set hvGenFeeFlag = $$READFLD("HCTTGENERATEFEE",zvTrx.HCTRTYPE)
+	Print "hvGenFeeFlag= "_hvGenFeeFlag
+	If (hvGenFeeFlag <> "N") And (Not $$BLANK(hvGenFeeFlag)) Then
+		'Print "1"
+		' Make sure HCTRTOTALPMT is blank.  If it is not blank then the fee has already been processed by
+		' the HCSPLITPAYMENT Application Service.
+		
+		'If $$BLANK(zvTrx.HCTRTOTALPMT) Then
+		'Print "2"
+		' Make sure category is not R or PR since those are handled differently.
+		If (zvTrx.HCTRCAT <> "R") And (zvTrx.HCTRCAT <> "PR") Then
+			'Print "3"
+			' Check if facility has a Fee Configuration.
+			Set hvFacility.HCFAID = zvTrx.HCTRFACILITY
+			Set zvfacstr = $$EXTRACT(hvEnc.HCENFACILITY,1,7)
+			Audit "zvfacstr "_zvfacstr
+			'Sutter WC Fee Calc Begin
+			If zvfacstr = "HCWCSS3" Then
+				
+				Audit "zzencliageplct is "_hvEnc.ZZENCLIAGEPLCT
+				
+				If (hvEnc.ZZENCLIAGEPLCT > 0) And (hvEnc.ZZENCLIAGEPLCT < 60) Then
+					
+					Set hvFacility.HCFAFEECFGID = ""
+					Set hvFacility.HCFAFEECFGID = "TPSUTWC4-5"
+					Audit "pt 1 fee "_hvFacility.HCFAFEECFGID
+				End If
+				
+				'Day 60-89 Age at Placement = 6.0%
+				If (hvEnc.ZZENCLIAGEPLCT > 59) And (hvEnc.ZZENCLIAGEPLCT < 90) Then
+					
+					Set hvFacility.HCFAFEECFGID = ""
+					Set hvFacility.HCFAFEECFGID = "TPSUTWC6"
+					Audit "pt 2 fee "_hvFacility.HCFAFEECFGID
+				End If
+				
+				'Day 90-119 Age at Placement = 7.0%
+				If (hvEnc.ZZENCLIAGEPLCT > 89) And (hvEnc.ZZENCLIAGEPLCT < 120) Then
+					
+					Set hvFacility.HCFAFEECFGID = ""
+					Set hvFacility.HCFAFEECFGID = "TPSUTWC7"
+					Audit "pt 3 fee "_hvFacility.HCFAFEECFGID
+				End If
+				
+				'Day 120-149 Age at Placement = 8.0%
+				If (hvEnc.ZZENCLIAGEPLCT > 119) And (hvEnc.ZZENCLIAGEPLCT < 150) Then
+					
+					Set hvFacility.HCFAFEECFGID = ""
+					Set hvFacility.HCFAFEECFGID = "TPSUTWC8"
+					Audit "pt 4 fee "_hvFacility.HCFAFEECFGID
+				End If
+				
+				'Day 150 + Age at Placement = 8.5%
+				If hvEnc.ZZENCLIAGEPLCT > 149 Then
+					
+					Set hvFacility.HCFAFEECFGID = ""
+					Set hvFacility.HCFAFEECFGID = "TPSUTWC8-5"
+					Audit "pt 5 fee "_hvFacility.HCFAFEECFGID
+				End If
+				'Print " ZZMANUALFEECALC Set end"
+				'Sutter WC Fee Calc End
+			End If
+			
+			Audit "new facility fee cf is "_hvFacility.HCFAFEECFGID
+			
+			
+			If Not $$BLANK(hvFacility.HCFAFEECFGID) Then
+				'Print "4"
+				' Make sure this is not an administrative fee transaction.
+				If zvTrx.HCTRTYPE <> "ADMINFEE" Then
+					'Print "5"
+					' Initialize hvFeeTypeFndId and hvDefaultId.
+					Set hvFeeTypeFndId = 0
+					Set hvDefaultId    = 0
+					
+					' Loop through the fees for the fee configuration.
+					Set hvFeeIdx.HCFEFCID = hvFacility.HCFAFEECFGID
+					Set hvFeeIdx.HCFEID   = ""
+					While (Not $$BLANK($$hvFeeIdx.Next())) And (Not hvFeeTypeFndId)
+						Set hvFeeTab.HCFEID = hvFeeIdx.HCFEID
+						'Print "6 (loop)"
+						Audit "loop 1 feeid is "_hvFeeTab.HCFEID
+						' Make sure not an administrative fee.
+						If hvFeeTab.HCFECHARGETYPE <> "A" Then
+							Audit "loop 2 feeid is "_hvFeeTab.HCFEID
+							'Print "7"
+							' Use the transaction type to find a fee exception.
+							If hvFeeTab.HCFETRANSCODE = zvTrx.HCTRTYPE Then
+								' Stop the loop and set the chargeable flag.
+								Audit "loop 3 feeid is "_hvFeeTab.HCFEID
+								'Print "8"
+								Set hvFeeTypeFndId = hvFeeTab.HCFEID
+							Else
+								' Check if this is the DEFAULT, but don't allow it if it is Administrative.
+								If (hvFeeTab.HCFETRANSCODE = "DEFAULT") And (hvFeeTab.HCFECHARGETYPE <> "A") Then
+									Set hvDefaultId = hvFeeTab.HCFEID
+									Audit "loop 4 feeid is "_hvFeeTab.HCFEID
+									'Print "9"
+								End If
+							End If
+						End If
+					End While ' Facility fee loop.
+					
+					' Check if the config fee for the type or the default was found.
+					If (hvFeeTypeFndId) Or (hvDefaultId) Then
+						Set zvTrx.HCTRCHGFLG = "Y"
+						Print "1 Chg= type: "_hvFeeTypeFndId_" | def: "_hvDefaultId_" | chg: "_zvTrx.HCTRCHGFLG
+						Print "set - trx: "_zvTrx.HCTRID_" | chg: "_zvTrx.HCTRCHGFLG
+						Call zvTrx.Write()
+						
+						' Use script HCCALCTRANSFEES to set the fee.
+						If hvFeeTypeFndId Then
+							Set zvTrx.HCTRCHGAMT = $$HCCALCTRANSFEES(zvTrx.HCTRID,hvFeeTypeFndId,hvFeeDesc,hvFeeRate)
+							'Print "CALC RAN: TRID= "_HCTRID_"(<-HARD)"_zvTrx.HCTRID_"|CAT= "_HCTRCAT_"(<-HARD)"_zvTrx.HCTRCAT
+							Set zvTrx.HCTRFEID = hvFeeTypeFndId
+							Print "2 Chg= type: "_hvFeeTypeFndId_" | def: "_hvDefaultId_" | chg: "_zvTrx.HCTRCHGFLG
+						Else
+							Set zvTrx.HCTRCHGAMT = $$HCCALCTRANSFEES(zvTrx.HCTRID,hvDefaultId,hvFeeDesc,hvFeeRate)
+							'    Print "ALT CALC RAN: TRID= "_HCTRID_"(<-HARD)"_zvTrx.HCTRID_"|CAT= "_HCTRCAT_"(<-HARD)"_zvTrx.HCTRCAT
+							Set zvTrx.HCTRFEID = hvDefaultId
+							Print "3 Chg= type: "_hvFeeTypeFndId_" | def: "_hvDefaultId_" | chg: "_zvTrx.HCTRCHGFLG
+						End If
+						Set zvTrx.HCTRCHGDESC = hvFeeDesc
+						Set zvTrx.HCTRCHGRATE = hvFeeRate
+						
+						'    Write HCTRCHGAMT,HCTRCHGDESC,HCTRCHGRATE,HCTRFEID
+						Call zvTrx.Write()
+						Print "4 Chg= type: "_hvFeeTypeFndId_" | def: "_hvDefaultId_" | chg: "_zvTrx.HCTRCHGFLG
+					End If
+				End If ' Admin Fee check
+			End If ' Blank check for facility Fee Configuration
+		End If ' Category not R and PR check
+	End If ' Blank HCTRTOTALPMT check
+	'End If ' HCTTGENERATEFEE value check
+	
+	' Make sure this is a payment and the amount is populated.
+	If (zvTrx.HCTRCAT = "P") And (Not $$BLANK(zvTrx.HCTRAMOUNT))  Then
+		
+		' Setup payment arrangement tabrec.
+		Set hvPmtArrg.HCPAID = hvAcct.HCACARRGID
+		
+		' Set statistic fields.
+		Set hvUStats.HVFIELD = "HCUSPAYMENTS"
+		' Convert the payment to a postive amount.
+		Set hvUStats.HVVALUE = zvTrx.HCTRAMOUNT*(-1)
+		
+		' Make sure we give credit to the correct person.
+		' Check for a payment arrangement and the user who made it.
+		If Not $$BLANK(hvAcct.HCACARRGID) Then
+			If Not $$BLANK(hvPmtArrg.HCPAUSER) Then
+				Set hvUStats.HVUSER = hvPmtArrg.HCPAUSER
+			End If
+		End If
+		
+		' Give credit to account owner, if no payment arrangement.
+		If $$BLANK(hvUStats.hvuser) Then
+			Set hvUStats.HVUSER = hvAcct.HCACOWNER
+		End If
+		
+		' Only log the stat if there is a user to credit.
+		If Not $$BLANK(hvUStats.HVUSER) Then
+			' Set the statistic account property.
+			Set hvUStats.HVACCOUNT = hvAcct.HCACID
+			Call hvUStats.LOG()
+		End If
+	End If
+	
+	Print "end - trx: "_zvTrx.HCTRID_" | chg: "_zvTrx.HCTRCHGFLG
+	
+	
+	
+End Sub PostFee
+'__________________________________________________________________________________________________________________________
+'__________________________________________________________________________________________________________________________
+
+Begin Sub ClearTrx
+	
+	Set zvAcc.HCACID = ""
+	Set zvTmx.ZZTMPTRXID = ""
+	
+	Set zvTmxIdx.ZZTMPTRXMAINACCT = ""
+	Set zvTmxIdx.ZZTMPTRXID = ""
+	
+	
+	Set zvAcc.HCACID = HCACID
+	
+	Set zvTmxIdx.ZZTMPTRXMAINACCT = zvAcc.HCACID
+	Set zvTmxIdx.ZZTMPTRXID = ""
+	
+	While $$zvTmxIdx.Next() <> ""
+		
+		Set zvTmx.ZZTMPTRXID = zvTmxIdx.ZZTMPTRXID
+		Call zvTmx.Delete()
+		
+	End While
+	
+	
+	Call SYREFRESHWIN("HCACCOUNT","ZZACTRXPSTWIN")
+	
+	
+End Sub ClearTrx
+'__________________________________________________________________________________________________________________________
+'__________________________________________________________________________________________________________________________

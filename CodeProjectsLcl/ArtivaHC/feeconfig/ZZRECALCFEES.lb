@@ -1,0 +1,438 @@
+' This script will display the HCRECALCFEES window and allow the user to enter values for the
+' facility and start date.  If the HCRECALCFEES window is saved, the script will loop through the
+' transactions for the specified facility that have been added to the system on the specified date
+' up through the current date that have not been included in an invoice and will recalculate the
+' associated fees based on the current fee configuration specified for the facility.
+'
+' Modified:
+' 07/15/2014  MD  - Created.                                                           Task - 798800
+'
+Begin Declare
+	Shared HVRECALCFAC      As Chr                         ' Shared to window HCRECALCFEES - facility variable
+	Shared HVRECALCSTARTDTE As Date                        ' Shared to window HCRECALCFEES - starting transaction date variable
+	
+	hsFacIdx                As syIndex.ZZTRFACPAC        ' Index on transactions for facility
+	'hsFacIdx                As syIndex.hctrfacility
+	
+	hsFeeIdx                As syIndex.HCFEFCID            ' Config Fee Table R-Field to Fee Configuration
+	hsBatPmtIdx             As syIndex.HCTRBPID            ' Index on transactions for batch payment id
+	hsFeeRStepIdx           As syIndex.HCFRSFRID           ' Index for Fee Ranges for schedule
+	hsFeeList               As syList                      ' List service
+	hsFeeRStepList          As syList                      ' List to sort Fee Range values
+	hsTrans                 As syTabRec.HCTRANSACTIONS     ' syTabRec for transactions
+	hsRevTrans              As syTabRec.HCTRANSACTIONS     '
+	hsRelTrans              As syTabRec.HCTRANSACTIONS     ' syTabRec for related transactions
+	hsFacility              As syTabRec.HCFACILITY         ' syTabrec for facility
+	hsFeeTab                As syTabRec.HCFEECONFIG        ' Tabrec for Fee Config
+	hsAcct                  As syTabRec.HCACCOUNT          ' Account tabrec for account
+	hsFeeConfigTab          As syTabRec.HCFEECONFIGURATION ' Fee Configuration tabrec
+	hsFeeRangeTab           As syTabRec.HCFEERANGE         ' Fee Range Tabrec
+	hsFeeRStepTab           As syTabRec.HCFEERANGESTEP     ' Fee Range Step Tabrec
+	
+	hvFeeTypeFndId          As Number                      ' Variable to stop loop
+	hvDefaultId             As Number                      ' Variable to hold fee config id for DEFAULT
+	hvFeeDesc               As Chr                         ' Variable to hold fee description
+	hvFeeRate               As Amt                         ' Variable to hold fee rate
+	hvFlatFee               As Amt                         ' Variable to indicate if a flat fee
+	hvChargeAmt             As Amt                         ' Variable to hold fee amount
+	hvChargeDesc            As Chr                         ' Variable to hold fee description
+	hvRate                  As Amt                         ' Variable to hold fee rate
+	hvTable                 As Chr                         ' Variable to hold table eval field is from
+	hvDate                  As Date                        ' Date from Fee Configuration Eval Field
+	hvFlatFeeApplied        As Number                      ' Variable to indicate flat fee has been applied
+	hvRateApply             As Number                      ' Variable indicating whether to charge rate fee
+	hvTrueVal               As Number                      ' Variable to hold amount in AR check
+	hvFoundAR               As Number                      ' Variable used to exit from loop on AR
+	hvTotalFee              As Amt                         ' Variable to hold total fees applied during split
+	hvTTCat                 As Chr                         ' Variable to hold Transaction Type Category
+	hvTransAmt              As Amt                         ' Variable to hold transaction amount to use for determining fee
+	hvGenFeeFlag            As Chr                         ' Variable to hold value of Generate Fee field
+	
+	hvFeeTypeFndIdTemp As Number
+	
+End Declare
+Begin Main
+	
+	' Initialize the shared variables to blank.
+	Set HVRECALCFAC      = ""
+	Set HVRECALCSTARTDTE = ""
+	
+	' Display the window and determine if the window was saved.
+	If $$DISPWIN("","","HCRECALCFEES") = "SAVE" Then
+		
+		' Check if facility has a Fee Configuration.
+		Set hsFacility.HCFAID = HVRECALCFAC
+		If Not $$BLANK(hsFacility.HCFAFEECFGID) Then
+			
+			' Create console message indicating process started.
+			Call ADDCONMSG("HCFEERECALC_START","",HVRECALCFAC_"|"_$$FMTDATE(HVRECALCSTARTDTE,"MM/DD/YYYY"))
+			
+			' Buid list of fees for the configuration.
+			' Loop through the fees for the fee configuration.
+			Set hsFeeIdx.HCFEFCID = hsFacility.HCFAFEECFGID
+			Set hsFeeIdx.HCFEID   = ""
+			While (Not $$BLANK($$hsFeeIdx.Next())) And (Not hvFeeTypeFndId)
+				Set hsFeeTab.HCFEID = hsFeeIdx.HCFEID
+				
+				' Make sure the trans type is populated.
+				If Not $$BLANK(hsFeeTab.HCFECHARGETYPE) Then
+					
+					' Add to list using the trans code value as the key value and the id as the item.
+					Call hsFeeList.Add(hsFeeTab.HCFETRANSCODE,hsFeeTab.HCFEID)
+				End If
+			End While ' Facility fee loop.
+			
+			' Loop to find transactions for the specified facility that have a transaction date greater than or
+			' equal to the specified start date.
+			
+			Set hsFacIdx.ZZTRFACPAC = hsFacility.ZZFAFACPAC
+			'Set hsFacIdx.hctrfacility = hsFacility.hcfaid
+			Set hsFacIdx.HCTRID       = ""
+			While Not $$BLANK($$hsFacIdx.Next())
+				
+				' Set transaction tabrec.
+				Set hsTrans.HCTRID = hsFacIdx.HCTRID
+				
+				' Set category variable
+				If Not $$BLANK(hsTrans.HCTRCAT) Then
+					Set hvTTCat = hsTrans.HCTRCAT
+				Else
+					Set hvTTCat = $$READFLD("HCTTCAT",hsTrans.HCTRTYPE)
+				End If
+				
+				' Make sure only evaluate transactions with a date equal to or greater than the specified date.
+				If hsTrans.HCTRDATE >= HVRECALCSTARTDTE Then
+					
+					' Make sure this is not an administrative fee transaction.
+					If hsTrans.HCTRTYPE <> "ADMINFEE" Then
+						
+						' Make sure that the fee for this transaction has not already been recalculated on this date.
+						' If a split payment has already been recalculated, its associated batch payment transactions
+						' will also have had their fees recalculated.
+						If hsTrans.HCTRRECALCFEEDTE <> $$TODAY() Then
+							
+							' Don't update fees on Payment reversals and Reversals since their corresponding payments
+							' will not be recalculated either based on the following checks for HCTRREVERSED and HCTRBATREVTRN.
+							If (hvTTCat <> "PR") And (hvTTCat <> "R") Then
+								
+								' Do not recalculate if the transaction is flagged as reversed.
+								If hsTrans.HCTRREVERSED = "Y" Then
+									' Do not recalculate since the transaction will not be included in an invoice.
+								Else
+									
+									' Do not recalculate if a batch reversing transaction has been identified (It is in a batch that has not been approved yet.)
+									If Not $$BLANK(hsTrans.HCTRBATREVTRN) Then
+										' Do not recalculate since the transaction will not be included in an invoice.
+									Else
+										
+										' Check if the Generate Fee flag is populated and not set to "N" for the transaction type.
+										Set hvGenFeeFlag = $$READFLD("HCTTGENERATEFEE",hsTrans.HCTRTYPE)
+										If (hvGenFeeFlag <> "N") And (Not $$BLANK(hvGenFeeFlag)) Then
+											
+											' Check if the transaction type is in the list.
+											If $$hsFeeList.Exists(hsTrans.HCTRTYPE) Then
+												Set hvFeeTypeFndId = $$hsFeeList.Value(hsTrans.HCTRTYPE)
+											Else
+												Set hvFeeTypeFndId = 0
+											End If
+											
+											' Check if a default is in the list.
+											If $$hsFeeList.Exists("DEFAULT") Then
+												Set hvDefaultId = $$hsFeeList.Value("DEFAULT")
+											Else
+												Set hvDefaultId    = 0
+											End If
+											
+											' Check if the config fee for the type or the default was found.
+											If (hvFeeTypeFndId) Or (hvDefaultId) Then
+												
+												' Set the charge flag if the category is populated. (If the transaction is in a batch that still
+												' needs to be updated, the category will not be set yet.  When the batch is updated, those transactions
+												' will get the charge flag set.)
+												If Not $$BLANK(hsTrans.HCTRCAT) Then
+													Set hsTrans.HCTRCHGFLG = "Y"
+												End If
+												
+												' Check if the transaction is not part of a batch payment.
+												If $$BLANK(hsTrans.HCTRBPID) Then
+													
+													' Use script HCCALCTRANSFEES to set the fee.
+													If hvFeeTypeFndId Then
+														
+														'========  SutterWC Custom Begin ============
+														Set hvFeeTypeFndIdTemp = hvFeeTypeFndId
+														Set hvFeeTypeFndId = $$ZZMANUALFEECALC(hsTrans.HCTRENCNTRID,"RECALC",hsTrans.HCTRTYPE)
+														
+														If $$BLANK(hvFeeTypeFndId) Then
+															Set hvFeeTypeFndId = hvFeeTypeFndIdTemp
+														End If
+														'========== SutterWC Custom End =================
+														
+														Set hsTrans.HCTRCHGAMT = $$HCCALCTRANSFEES(hsTrans.HCTRID,hvFeeTypeFndId,hvFeeDesc,hvFeeRate)
+														Set hsTrans.HCTRFEID   = hvFeeTypeFndId
+													Else
+														Set hsTrans.HCTRCHGAMT = $$HCCALCTRANSFEES(hsTrans.HCTRID,hvDefaultId,hvFeeDesc,hvFeeRate)
+														Set hsTrans.HCTRFEID   = hvDefaultId
+													End If
+													Set hsTrans.HCTRCHGDESC      = hvFeeDesc
+													Set hsTrans.HCTRCHGRATE      = hvFeeRate
+												Else
+													' Check if the transaction type has a fee.
+													If hvFeeTypeFndId Then
+														' Set the Config Fee Tabrec.
+														Set hsFeeTab.HCFEID = hvFeeTypeFndId
+														
+														' Get Fee Information.
+														Gosub GetFeeInfo
+													Else
+														' The default fee is why it made it here.
+														' Set the Config Fee Tabrec.
+														Set hsFeeTab.HCFEID = hvDefaultId
+														
+														' Get Fee Information.
+														Gosub GetFeeInfo
+													End If
+													
+													' Initialize total fee variable to zero before looping on batch payments.
+													Set hvTotalFee = 0
+													
+													' Loop through the associated batch payments.
+													Set hsBatPmtIdx.HCTRBPID = hsTrans.HCTRBPID
+													Set hsBatPmtIdx.HCTRID   = ""
+													While Not $$BLANK($$hsBatPmtIdx.Next())
+														' Set tabrec key for loop.
+														Set hsRelTrans.HCTRID = hsBatPmtIdx.HCTRID
+														
+														If hvFlatFee Then
+															If Not hvFlatFeeApplied Then
+																Set hsRelTrans.HCTRCHGAMT  = hvChargeAmt
+																Set hsRelTrans.HCTRCHGDESC = hvChargeDesc
+																Set hvFlatFeeApplied    = 1    ' Set hvFlatFeeApplied to indicate it has been applied.
+															End If
+														Else
+															' This is a rate fee.
+															If hvRateApply Then
+																' Calculate fee if it is not an over payment or it is an overpayment and the overpayment fee flag for the configuration is set to Y.
+																If (hsRelTrans.HCTRCOMMENT Not [ " - Split Pmt - Overpayment") Or ((hsRelTrans.HCTRCOMMENT [ " - Split Pmt - Overpayment") And (hsFeeConfigTab.HCFCOVRPAYFEE = "Y")) Then
+																	Set hsRelTrans.HCTRCHGAMT  = ((($$SYABSOLUTE(hsRelTrans.HCTRAMOUNT) * hvRate)+0.5)\1)/100        ' The +0.5\1 rounds to the nearest cent
+																	Set hsRelTrans.HCTRCHGRATE = hvRate
+																	Set hsRelTrans.HCTRCHGDESC = hvChargeDesc
+																	
+																	' Ensure the amount is not over the cap.
+																	If (Not $$BLANK(hsFeeTab.HCFECAP)) And ((hvTotalFee + hsRelTrans.HCTRCHGAMT) > hsFeeTab.HCFECAP) Then
+																		Set hsRelTrans.HCTRCHGAMT = hsFeeTab.HCFECAP - hvTotalFee
+																		' Set the description.
+																		Set hsRelTrans.HCTRCHGDESC = hsRelTrans.HCTRCHGDESC_" (Capped)"
+																	End If
+																	' Sum the total fee.
+																	Set hvTotalFee = hvTotalFee + hsRelTrans.HCTRCHGAMT
+																Else
+																	' Clear fee fields.
+																	Set hsRelTrans.HCTRCHGFLG  = ""
+																	Set hsRelTrans.HCTRCHGAMT  = ""
+																	Set hsRelTrans.HCTRFEID    = ""
+																	Set hsRelTrans.HCTRCHGDESC = ""
+																	Set hsRelTrans.HCTRCHGRATE = ""
+																End If
+															End If    ' hvRateApply check
+														End If    ' hvFlatFee check
+														Set hsRelTrans.HCTRRECALCFEEDTE = $$TODAY()
+														Call hsRelTrans.Write()
+													End While
+												End If
+											Else
+												' Neither a default or a config fee for the type were found.
+												' Use sub to clear fields.
+												Gosub ClearFeeFields
+											End If
+										Else
+											' The transaction type is not set to generate a fee.
+											' Use sub to clear fields.
+											Gosub ClearFeeFields
+										End If    ' Transaction type set to generate fee check.
+										
+										' Set the fee recalculation date.
+										Set hsTrans.HCTRRECALCFEEDTE = $$TODAY()
+										
+										' Write the transaction fields that have been set.
+										Call hsTrans.Write()
+									End If    ' Batch reversing transaction check
+								End If    ' Reversed check
+							End If    ' Categrory not PR and not R check
+						End If    ' Recalculate fee date check
+					End If    ' Admin Fee check
+				End If    ' Transaction date check
+			End While
+			
+			' Create console message indicating process completed.
+			Call ADDCONMSG("HCFEERECALC_COMPLETE","",HVRECALCFAC_"|"_$$FMTDATE(HVRECALCSTARTDTE,"MM/DD/YYYY"))
+		Else
+			' The selected facility does not have a fee configuration specified.
+			Call MSGBOX("Facility '"_HVRECALCFAC_"' does not have a fee configuration specified.")
+			
+		End If    ' Blank check for facility Fee Configuration
+	End If    ' Save window check
+	
+	' If in Gui, move back to menu.
+	If SYGUIMODE Then
+		Call SYG3USERACT("back")
+	End If
+	
+End Main
+Begin Sub GetFeeInfo
+	
+	' Initialize
+	Set hvFlatFee    = 0
+	Set hvChargeAmt  = ""
+	Set hvChargeDesc = "Invalid payment amount"
+	Set hvRate       = ""    ' Percentage fees need to set the charge rate
+	
+	'The fee for the transaction is always calculated on the absolute value of the transaction.  If a fee refund is specified on
+	'the transaction type the fee will be negated.
+	
+	Set hsAcct.HCACID = hsTrans.HCTRACCOUNTID                 ' Set account tabrec to account related to the transaction
+	Set hsFeeConfigTab.HCFCID = hsFacility.HCFAFEECFGID       ' Set Fee Configuration Tabrec
+	
+	' Determine which table the eval field is from.
+	If Not $$BLANK(hsFeeConfigTab.HCFCEVALFLD) Then
+		Set hvTable = $$READFLD("UFTABLE",hsFeeConfigTab.HCFCEVALFLD)
+		
+		' Get date value from the field using the appropriate table's key value.
+		If hvTable = "HCACCOUNT" Then
+			Set hvDate = $$READFLD(hsFeeConfigTab.HCFCEVALFLD,hsAcct.HCACID)
+		Else
+			Set hvDate = $$READFLD(hsFeeConfigTab.HCFCEVALFLD,hsAcct.HCACENCNTRID)
+		End If
+	End If
+	
+	' If this is not the DEFAULT.
+	If hsFeeTab.HCFETRANSCODE <> "DEFAULT" Then
+		
+		' Apply the fee if the transaction is:
+		'   1) not a payment
+		'   2) a payment and the fee configuration's eval field is blank (This would apply to fee configurations that were converted by task 790390.)
+		'   3) a payment and the fee configuration's eval field is not blank and the transaction date is greater than the eval field's value plus the fee configuration's grace days.
+		If (hvTTCat <> "P") Or ((hvTTCat = "P") And (($$BLANK(hsFeeConfigTab.HCFCEVALFLD)) Or ((Not $$BLANK(hsFeeConfigTab.HCFCEVALFLD)) And (hsTrans.HCTRDATE > (hvDate + hsFeeConfigTab.HCFCGRACEDAYS))))) Then
+			If Not $$BLANK(hsTrans.HCTRTOTALPMT) Then
+				Set hvTransAmt = hsTrans.HCTRTOTALPMT
+			Else
+				Set hvTransAmt = hsTrans.HCTRAMOUNT
+			End If
+			Gosub GetFeeDetails
+		Else
+			' The date falls in the grace days range.
+			' Set Charge Amount to 0 and Description to "Fee Configuration Grace Days".
+			Set hvChargeAmt = 0
+			Set hvChargeDesc = "Fee Configuration Grace Days"
+		End If
+	Else
+		' This is the DEFAULT configuration.
+		Set hvTransAmt = hsTrans.HCTRAMOUNT
+		Gosub GetFeeDetails
+	End If ' Default check.
+	
+End Sub GetFeeInfo
+' Apply the fees to the transactions by finding the correct charge type from the
+' HCFEECONFIG table.
+Begin Sub GetFeeDetails
+	
+	' Apply the fee to the transaction.
+	Select hsFeeTab.HCFECHARGETYPE
+		Case "F"
+			' Flat fee, set it to the amount.
+			Set hvChargeAmt      = hsFeeTab.HCFEVALUE
+			Set hvFlatFee        = 1
+			Set hvFlatFeeApplied = 0
+			
+			' Make sure the flat fee does not exceed the transaction amount (except for "C" transactions).
+			' The transaction amount should be negative, so we must reverse the sign.
+			If (hvTTCat <> "C") And (hvChargeAmt > $$SYABSOLUTE(hvTransAmt)) Then
+				Set hvFlatFee = $$SYABSOLUTE(hvTransAmt)
+			End If
+			
+			' Set the description.
+			Set hvChargeDesc = hsFeeTab.HCFEDESC
+		Case "P"
+			' Set the charge rate.
+			Set hvRate      = hsFeeTab.HCFEVALUE
+			Set hvRateApply = 1
+			
+			' Set the description.
+			Set hvChargeDesc = hsFeeTab.HCFEDESC
+			
+		Case "AR"
+			' Set up the Fee Range and Fee Range Step tables
+			Set hsFeeRangeTab.HCFRID    = hsFeeTab.HCFERANGEID
+			Set hsFeeRStepIdx.HCFRSFRID = hsFeeRangeTab.HCFRID
+			Set hsFeeRStepIdx.HCFRSID   = ""
+			
+			' Determine what value we are using for the range type
+			Select hsFeeRangeTab.HCFRTYPE
+				Case "TA"    ' Transaction amount
+					' Use Absolute Value to be able to locate it within the range table
+					Set hvTrueVal = $$SYABSOLUTE(hvTransAmt)
+					
+				Case "AB"    ' Account balance amount
+					Set hvTrueVal = hsAcct.HCACBAL
+			End Select
+			
+			' Build a list of range values so they will be sorted when we apply the fee
+			Call hsFeeRStepList.Clear()
+			While (Not $$BLANK($$hsFeeRStepIdx.Next()))
+				Set hsFeeRStepTab.HCFRSID = hsFeeRStepIdx.HCFRSID
+				Call hsFeeRStepList.Add(hsFeeRStepTab.HCFRSRANGEVALUE,hsFeeRStepTab.HCFRSID)
+			End While
+			
+			Set hvFoundAR = 0
+			
+			' Loop on the sorted fee range list to find the correct percentage to apply
+			Call hsFeeRStepList.Restart()
+			While (Not $$BLANK($$hsFeeRStepList.GetNext())) And (Not hvFoundAR)
+				Set hsFeeRStepTab.HCFRSID = hsFeeRStepList.CurrentVal
+				
+				' See if our value falls within the range
+				If hvTrueVal <= hsFeeRStepTab.HCFRSRANGEVALUE Then
+					Set hvFoundAR = 1
+					If hsFeeRStepTab.HCFRSVALUETYPE = "P" Then
+						
+						' Set HCTRCHGRATE if it's a percent
+						Set hvRate      = hsFeeRStepTab.HCFRSVALUE
+						Set hvRateApply = 1
+					Else
+						Set hvChargeAmt = hsFeeRStepTab.HCFRSVALUE
+						Set hvFlatFee   = 1
+						
+						If hsFeeRangeTab.HCFRTYPE = "TA" Then
+							' Make sure the flat fee does not exceed the payment amount.
+							If hvChargeAmt > $$SYABSOLUTE(hvTransAmt) Then
+								Set hvChargeAmt = $$SYABSOLUTE(hvTransAmt)
+							End If
+						End If
+					End If
+				End If
+				
+			End While ' Range step table loop
+			
+			If hvFoundAR Then
+				Set hvChargeDesc = hsFeeTab.HCFEDESC
+			Else
+				Set hvChargeDesc = "Fee Unavailable"
+			End If
+			
+	End Select ' Charge type check.
+	
+	' Check if the Generate Fee is "R".
+	If $$READFLD("HCTTGENERATEFEE",hsTrans.HCTRTYPE) = "R" Then
+		Set hvChargeAmt = -hvChargeAmt
+	End If
+End Sub GetFeeDetails
+Begin Sub ClearFeeFields
+	
+	' Clear fields that may have been set if previously there was a default or a config fee for the type.
+	Set hsTrans.HCTRCHGFLG  = ""
+	Set hsTrans.HCTRCHGAMT  = ""
+	Set hsTrans.HCTRFEID    = ""
+	Set hsTrans.HCTRCHGDESC = ""
+	Set hsTrans.HCTRCHGRATE = ""
+	
+End Sub ClearFeeFields

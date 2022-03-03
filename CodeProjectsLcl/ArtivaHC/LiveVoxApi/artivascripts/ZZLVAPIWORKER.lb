@@ -1,0 +1,220 @@
+Begin Declare
+	
+	zvRelId As Chr
+	zvEnId As Chr
+	zvActId As Chr
+	zvRecTyp As Chr
+	zvPoeStr As Chr
+	zvCnsStr As Chr
+	zvRelGrp As Chr
+	zvRelLst As syList
+	zvLen As Number
+	zvCnt As Number
+	zvTable As Chr
+	zvPndNum As Chr
+	zvProcNum As Chr
+	zvTab As Chr
+	zvTabId As Chr
+	
+	zvFilNam As Chr
+	
+	zvSt As Number
+	zvEt As Number
+	zvDt As Number
+	
+	zvLvUdt As syTabRec.ZZLVAPIUPDATE
+	zvLvHis As syTabRec.ZZLVAPIHIST
+	
+	zvLvApiHstId As Chr
+	zvLvApiHstIdPoe As Chr
+	
+	zvSqlStm As Chr
+	zvSqlSvc As arSQL
+	
+	zvOut As Chr
+	zvErr As Chr
+	
+End Declare
+
+Begin Main
+	
+	If $$ZZLVAPIGETOPT("ENABLED") = "Y" Then
+		
+		Set zvSt = $$NOW()
+		Set zvRecTyp = ""
+		Set zvPoeStr = ""
+		Set zvCnsStr = ""
+		Set zvCnt = ""
+		Set zvRelGrp = ""
+		Set zvEt = ""
+		Set zvDt = ""
+		Set zvRelId = ""
+		Set zvEnId = ""
+		Set zvActId = ""
+		Set zvLen = ""
+		Set zvCnt = ""
+		Set zvTable = ""
+		Set zvSqlStm = ""
+		Set zvPndNum = ""
+		Set zvProcNum = ""
+		Set zvTab = ""
+		Set zvTabId = ""
+		Set zvLvUdt.ZZLVUDTID = ""
+		Set zvLvHis.ZZLVAPIHID = ""
+		Call zvRelLst.Clear()
+		Set zvOut = ""
+		Set zvLvApiHstId = ""
+		Set zvLvApiHstIdPoe = ""
+		Set zvErr = ""
+		
+		Set zvFilNam = "/home/eosbin/LiveVoxApi/Request/reqfiles/pnd_"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_".dat"
+		Call ZZFILEUTIL(zvFilNam, "c")
+		
+		If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+			Set zvErr = zvErr_" | "_LBERRMSG
+		End If
+		
+		Set zvPndNum = $$ZZLVAPIGETOPT("PEND_NUM")
+		Set zvProcNum = $$ZZLVAPIGETOPT("PROC_NUM")
+		
+		' select top 5000 * from ZZLVAPIUPDATE
+		Set zvSqlStm = "select top "_zvPndNum_" * from ZZLVAPIUPDATE"
+		
+		Call zvSqlSvc.Execute(zvSqlStm)
+		
+		If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+			Set zvErr = zvErr_" | "_LBERRMSG
+		End If
+		
+		While $$zvSqlSvc.Next()
+			
+			Set zvRelGrp = ""
+			Set zvTab = ""
+			Set zvTabId = ""
+			
+			Set zvCnt = 1
+			Set zvLvUdt.ZZLVUDTID = $$zvSqlSvc.Get("ZZLVUDTID")
+			
+			Set zvRelGrp = $$zvSqlSvc.Get("ZZLVUDTGRPIDX")
+			Set zvTab = $$zvSqlSvc.Get("ZZLVUDTTABLE")
+			Set zvTabId = $$zvSqlSvc.Get("ZZLVUDTTABID")
+			
+			
+			Set zvLen = $$PIECE(zvRelGrp, "~", 1)
+			
+			While zvCnt <= zvLen
+				
+				Set zvCnt = zvCnt + 1
+				Set zvRelId = ""
+				Set zvActId = ""
+				Set zvEnId = ""
+				Set zvRecTyp = ""
+				Set zvPoeStr = ""
+				Set zvCnsStr = ""
+				
+				Set zvRelId = $$PIECE(zvRelGrp, "~", zvCnt)
+				Set zvEnId = $$READFLD("ARRELENID",zvRelId)
+				Set zvActId = $$READFLD("ARRELACID",zvRelId)
+				Set zvRecTyp = $$READFLD("ARRELTYPID",zvRelId)
+				
+				' UpdateAll '1
+				' *-*[lastName~GoodLastName~PER,COL10~col10_ThisIsIt~CST,address1~123 w adams st~DEF]
+				' *~*[7749789988~1~NONE~false,0~2~NONE~false,0~3~NONE~false,0~4~NONE~false,0~5~NONE~false,...10~NONE~false]
+				' *-*UDT6587156461530401'
+				
+				If $$READFLD("ZZRELLVLOADDTE",zvRelId) <> "" Then
+					If zvRecTyp = "COMAK" Then
+						
+						Set zvLvApiHstId = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvActId_"C"
+						Set zvLvApiHstIdPoe = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvActId_"POEC"
+						Set zvPoeStr = zvActId_"POEC*-*"_$$ZZLVBLDFLDLST(zvRelId)_"*~*"_$$ZZLVBLDPHNLST(zvEnId,"POE")_"*-*"_zvLvApiHstIdPoe
+						Set zvCnsStr = zvActId_"C*-*"_$$ZZLVBLDFLDLST(zvRelId)_"*~*"_$$ZZLVBLDPHNLST(zvEnId,"CNS")_"*-*"_zvLvApiHstId
+						
+					Else
+						
+						Set zvLvApiHstId = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvActId
+						Set zvLvApiHstIdPoe = "UDT"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvActId_"POEP"
+						Set zvPoeStr = zvActId_"POEP*-*"_$$ZZLVBLDFLDLST(zvRelId)_"*~*"_$$ZZLVBLDPHNLST(zvEnId,"POE")_"*-*"_zvLvApiHstIdPoe
+						Set zvCnsStr = zvActId_"*-*"_$$ZZLVBLDFLDLST(zvRelId)_"*~*"_$$ZZLVBLDPHNLST(zvEnId,"CNS")_"*-*"_zvLvApiHstId
+						
+					End If
+					
+					'Set zvOut = "cns - "_zvCnsStr_SYCR_SYLF_"poe - "_zvPoeStr
+					
+					' Consumer Record
+					Set zvLvHis.ZZLVAPIHID = ""
+					Call zvLvHis.create()
+					Set zvLvHis.ZZLVAPIHID = zvLvApiHstId
+					Set zvLvHis.ZZLVAPIHACTID = zvActId
+					Set zvLvHis.ZZLVAPIHRELID = zvRelId
+					Set zvLvHis.ZZLVAPIHENTID = zvEnId
+					Set zvLvHis.ZZLVAPIHTABLE = zvTable
+					Set zvLvHis.ZZLVAPIHRECID = zvTabId
+					Set zvLvHis.ZZLVAPIHFUNC = "UpdateAll"
+					Set zvLvHis.ZZLVAPIHDTEOUT = $$TODAY()
+					Set zvLvHis.ZZLVAPIHTIMOUT = $$NOW()
+					Set zvLvHis.ZZLVAPIHCMPLT = "N"
+					Set zvLvHis.ZZLVAPIHDATAOUT = zvCnsStr
+					Set zvLvHis.ZZLVAPIHSTATUS = "PENDING"
+					Set zvLvHis.ZZLVAPIHGRPID = "CNS"_zvRelGrp
+					Set zvLvHis.ZZLVAPIHPOE = "N"
+					Set zvLvHis.ZZLVAPIHRELTYP = zvRecTyp
+					Set zvLvHis.ZZLVAPIHTEST = "update all: recid="_zvTabId_", table="_zvTable_", reltype="_zvRecTyp_", datetime="_$$FMTDATE($$TODAY(),"MM/DD/YYYY")_" @ "_$$FMTTIME($$NOW(),"HH:MM:SS")
+					Call zvLvHis.Write()
+					
+					' POE Record
+					Set zvLvHis.ZZLVAPIHID = ""
+					Call zvLvHis.create()
+					Set zvLvHis.ZZLVAPIHID = zvLvApiHstIdPoe
+					Set zvLvHis.ZZLVAPIHACTID = zvActId
+					Set zvLvHis.ZZLVAPIHRELID = zvRelId
+					Set zvLvHis.ZZLVAPIHENTID = zvEnId
+					Set zvLvHis.ZZLVAPIHTABLE = zvTable
+					Set zvLvHis.ZZLVAPIHRECID = zvTabId
+					Set zvLvHis.ZZLVAPIHFUNC = "UpdateAll"
+					Set zvLvHis.ZZLVAPIHDTEOUT = $$TODAY()
+					Set zvLvHis.ZZLVAPIHTIMOUT = $$NOW()
+					Set zvLvHis.ZZLVAPIHCMPLT = "N"
+					Set zvLvHis.ZZLVAPIHDATAOUT = zvPoeStr
+					Set zvLvHis.ZZLVAPIHSTATUS = "PENDING"
+					Set zvLvHis.ZZLVAPIHGRPID = "POE"_zvRelGrp
+					Set zvLvHis.ZZLVAPIHPOE = "Y"
+					Set zvLvHis.ZZLVAPIHRELTYP = zvRecTyp
+					Set zvLvHis.ZZLVAPIHTEST = "update all: recid="_zvTabId_", table="_zvTable_", reltype="_zvRecTyp_", datetime="_$$FMTDATE($$TODAY(),"MM/DD/YYYY")_" @ "_$$FMTTIME($$NOW(),"HH:MM:SS")
+					Call zvLvHis.Write()
+					
+					' send req
+					' CNS
+					Call ZZFILEUTIL(zvFilNam, "a", zvCnsStr_SYCR_SYLF)
+					
+					' POE
+					Call ZZFILEUTIL(zvFilNam, "a", zvPoeStr_SYCR_SYLF)
+					
+				End If
+				
+				Call zvLvUdt.Delete()
+				
+			End While
+			
+		End While
+		
+		If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+			Set zvErr = zvErr_" | "_LBERRMSG
+		End If
+		
+		Set zvEt = $$NOW()
+		Set zvDt = zvEt - zvSt
+		
+		Call SYSHELL("/usr/local/bin/python3.6 /home/eosbin/LiveVoxApi/Request/LvReq.py '"_zvFilNam_"' '"_zvDt_"' "_zvProcNum,1)
+		
+		If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+			Set zvErr = zvErr_" | "_LBERRMSG
+		End If
+		
+		If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+			Audit zvErr
+		End If
+		
+	End If
+	
+End Main

@@ -1,0 +1,15 @@
+SHLVLOGIN
+SHELL LiveVox Login^G^0^1^RMDEV^^2^^
+***Begin CODE
+Begin Declare
+  
+End Declare
+
+Begin Main
+  
+  Call SYSHELL("/usr/local/bin/python3.6 /mnt/iscsi/RMPROD/LvApi/Request/LiveVoxLogin.py",1)
+  
+End Main
+
+***End CODE
+***End LB

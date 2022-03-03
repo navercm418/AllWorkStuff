@@ -1,0 +1,429 @@
+ZZLVAPINEWPHN
+***Begin PARAMS
+zvDataIn^CHR^N^^N
+***End PARAMS
+LiveVox New Phone^G^0^1^RMDEV^^2^^ZZLVAPINEWPHN
+***Begin PARAMS
+zvDataIn^CHR^N^^N
+***End PARAMS
+***Begin CODE
+'parameter:
+'          zvDataIn - CHR
+'                       "entity id"*-*"phone number"*-*"phone usage"*-*"phone blk
+'                     ex:       42344*-*7817534209*-*PRIMARY*-*NONE
+'
+'         data out:
+'                  "acct#"*-*"phone number"*-*"phone rank"*-*"phone block"*-*"cell consent"*-*"lv hist id"
+Begin Declare
+  
+  zvAct As syTabRec.ARACCOUNT
+  zvRel As syTabRec.ARRELATIONSHIP
+  zvEnt As syTabRec.ARENTITY
+  zvPhn As syTabRec.ARPHONE
+  zvCel As syTabRec.ARCELLPHCNST
+  zvLvHis As syTabRec.ZZLVAPIHIST
+  
+  zvPhnNumIdx As syIndex.ARPHPHONE
+  zvPhnEntIdx As syIndex.ARPHENID
+  zvCellIdx As syIndex.ARCELLPHCNSTPHNUM
+  
+  zvRelIdx As syIndex.ARRELENID
+  
+  zvPhnLst As syList
+  
+  zvFunc As Chr
+  zvData As Chr
+  
+  zvExtEnId As Number
+  zvExtPhn As Phone
+  zvExtPhnUse As Chr
+  zvExtPhnRnk As Number
+  zvExtPhnCns As Number
+  zvExtPhnBlk As Chr
+  
+  zvLvApiHstId As Chr
+  zvTstStr As Chr
+  
+  zvAccId As Number
+  zvRelId As Number
+  zvEntId As Number
+  zvTable As Chr
+  
+  zvSndLstCnt As Number
+  zvSndStr As Chr
+  
+  zvPhnCns As Number
+  zvPhnBlk As Chr
+  zvPhnNum As Chr
+  zvPhnRnk As Chr
+  zvPhnCnt As Number
+  
+  zvHasPrim As Chr
+  zvHasSec As Chr
+  zvHasPoe As Chr
+  
+  zvLvHstId As Chr
+  
+End Declare
+
+Begin Main
+  
+  'Print "---------------------------------------------------------------------------------------"
+  
+  Set zvHasPrim = ""
+  Set zvHasSec = ""
+  Set zvHasPoe = ""
+  
+  Set zvLvHstId = ""
+  Set zvRelId = ""
+  
+  Call zvPhnLst.Clear()
+  Set zvSndLstCnt = ""
+  
+  Set zvPhnCnt= ""
+  
+  Set zvPhnNum = ""
+  Set zvPhnRnk = ""
+  
+  Set zvExtPhnCns = ""
+  Set zvPhnCns = ""
+  Set zvPhnBlk = ""
+  
+  Set zvData = ""
+  Set zvFunc = ""
+  
+  Set zvExtEnId = ""
+  Set zvExtPhn = ""
+  Set zvExtPhnUse = ""
+  Set zvExtPhnRnk = ""
+  Set zvExtPhnBlk = ""
+  
+  Set zvSndStr = ""
+  
+  Set zvRel.ARRELID = ""
+  Set zvAct.ARACID = ""
+  Set zvEnt.ARENID = ""
+  Set zvPhn.ARPHID = ""
+  Set zvCel.ARCELLPHCNSTID = ""
+  Set zvLvHis.ZZLVAPIHID = ""
+  
+  Set zvRelIdx.ARRELENID = ""
+  Set zvRelIdx.ARRELID = ""
+  
+  Set zvCellIdx.ARCELLPHCNSTPHNUM = ""
+  Set zvCellIdx.ARCELLPHCNSTID = ""
+  '-----------------------------------------------------
+  
+  If zvDataIn <> "" Then
+    
+    Set zvExtEnId = $$PIECE(zvDataIn,"*-*",1)
+    Set zvExtPhn = $$PIECE(zvDataIn,"*-*",2)
+    Set zvExtPhnUse = $$PIECE(zvDataIn,"*-*",3)
+    Set zvExtPhnBlk = $$PIECE(zvDataIn,"*-*",4)
+    'Set zvLvHstId = $$PIECE(zvDataIn,"*-*",5)
+    '-------------------------------------------------------------------------------------------------
+    Set zvEnt.ARENID = zvExtEnId
+    
+    If zvEnt.ZZENLVLOADDTE <> "" Then
+      If zvEnt.ARENID <> "" Then
+        
+        Gosub CreatePhnList
+        
+        Gosub TiedAccts
+        
+      Else
+        Audit "Entity Id: "_zvExtEnId_" - Not In LiveVox "
+      End If
+      
+    Else
+      Audit "Entity Id: "_zvExtEnId_" - Data In blank "
+    End If
+  End If
+  
+End Main
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub CreatePhnList
+  '"acct#"*-*"phone number"*-*"phone rank"*-*"phone block"*-*"cell consent"*-*"lv hist id"
+  
+  '----------------- ext phone rank -------------------
+  Select zvExtPhnUse
+      
+    Case "PRIMARY"
+      Set zvExtPhnRnk = 1
+      Set zvHasPrim = "Y"
+      
+    Case "SECONDARY"
+      Set zvExtPhnRnk = 2
+      Set zvHasSec = "Y"
+      
+    Case "POE"
+      Set zvExtPhnRnk = 3
+      Set zvHasPoe = "Y"
+      
+    Case Else
+      Set zvExtPhnRnk = "NONE"
+      
+  End Select
+  '-----------------------------------------------------
+  
+  '------------------- ext phone cell consent ----------------
+  Set zvExtPhnCns = 0
+  
+  Set zvCellIdx.ARCELLPHCNSTPHNUM = zvExtPhn
+  Set zvCellIdx.ARCELLPHCNSTID = ""
+  
+  While $$zvCellIdx.Next() <> ""
+    
+    Set zvCel.ARCELLPHCNSTID = zvCellIdx.ARCELLPHCNSTID
+    
+    If zvCel.ARCELLPHCNSTFLAG = "Y" Then
+      Set zvExtPhnCns = 1
+    Else
+      Set zvExtPhnCns = 0
+    End If
+    
+  End While
+  '------------------------------------------------------------
+  
+  Call zvPhnLst.Add(zvExtPhn,"*-*"_zvExtPhnRnk_"*-*"_zvExtPhnBlk_"*-*"_zvExtPhnCns)
+  
+  '======================================= Phone Loop Begin ==================================================
+  
+  Set zvPhnEntIdx.ARPHENID = ""
+  Set zvPhnEntIdx.ARPHID = ""
+  
+  Set zvPhnEntIdx.ARPHENID = zvExtEnId
+  
+  Set zvPhnEntIdx.ARPHID = ""
+  
+  While $$zvPhnEntIdx.Next() <> ""
+    
+    Set zvPhnNum = ""
+    Set zvPhnRnk = ""
+    Set zvPhnCns = ""
+    Set zvPhnBlk = ""
+    
+    Set zvPhn.ARPHID = zvPhnEntIdx.ARPHID
+    
+    Set zvPhnNum = zvPhn.ARPHPHONE
+    
+    '--- phone rank
+    Set zvPhnRnk = zvPhn.ARPHMAPKEY
+    
+    
+    Set zvCellIdx.ARCELLPHCNSTPHNUM = zvPhnNum
+    Set zvCellIdx.ARCELLPHCNSTID = ""
+    
+    '--- cell consent
+    While $$zvCellIdx.Next() <> ""
+      
+      Set zvCel.ARCELLPHCNSTID = zvCellIdx.ARCELLPHCNSTID
+      
+      If zvCel.ARCELLPHCNSTFLAG = "Y" Then
+        Set zvPhnCns = 1
+      Else
+        Set zvPhnCns = 0
+      End If
+      
+    End While
+    
+    '--- phone block
+    Set zvPhnBlk = "NONE"
+    If zvPhn.ARPHCEASE = "Y" Then
+      Set zvPhnBlk = "PERMANENT"
+    End If
+    If zvPhn.ARPHEXHAUSTED = "Y" Then
+      Set zvPhnBlk = "PERMANENT"
+    End If
+    If zvPhn.ARPHBAD = "Y" Then
+      Set zvPhnBlk = "PERMANENT"
+    End If
+    If zvPhn.ARPHWRONG = "Y" Then
+      Set zvPhnBlk = "PERMANENT"
+    End If
+    
+    
+    Call zvPhnLst.Add(zvPhnNum,"*-*"_zvPhnRnk_"*-*"_zvPhnBlk_"*-*"_zvPhnCns)
+    
+    
+  End While
+  '======================================= Phone Loop End ==================================================
+  
+  '-------------- assign phone rank begin --------------------------------------------------------
+  Set zvPhnLst.Index = ""
+  While $$zvPhnLst.GetNext() <> ""
+    
+    Set zvPhnNum = ""
+    Set zvPhnRnk = ""
+    Set zvPhnBlk = ""
+    Set zvPhnCns = ""
+    
+    Set zvPhnNum = zvPhnLst.Index
+    Set zvPhnRnk = $$PIECE(zvPhnLst.CurrentVal,"*-*",2)
+    Set zvPhnBlk = $$PIECE(zvPhnLst.CurrentVal,"*-*",3)
+    Set zvPhnCns = $$PIECE(zvPhnLst.CurrentVal,"*-*",4)
+    
+    Select zvPhnRnk
+        
+      Case "PRIMARY"
+        If zvHasPrim = "Y" Then
+          Set zvPhnRnk = "NONE"
+        Else
+          Set zvPhnRnk = "1"
+          Set zvHasPrim = "Y"
+        End If
+        
+      Case "SECONDARY"
+        If zvHasSec = "Y" Then
+          Set zvPhnRnk = "NONE"
+        Else
+          Set zvPhnRnk = "2"
+          Set zvHasSec = "Y"
+        End If
+        
+      Case "POE"
+        If zvHasPoe = "Y" Then
+          Set zvPhnRnk = "NONE"
+        Else
+          Set zvPhnRnk = "3"
+          Set zvHasSec = "Y"
+        End If
+        
+      Case Else
+        
+    End Select
+    
+    Call zvPhnLst.Add(zvPhnNum,"*-*"_zvPhnRnk_"*-*"_zvPhnBlk_"*-*"_zvPhnCns)
+    
+  End While
+  
+  Set zvPhnCnt = 1
+  
+  If zvHasPrim = "Y" Then
+    Set zvPhnCnt = zvPhnCnt + 1
+  End If
+  
+  If zvHasSec = "Y" Then
+    Set zvPhnCnt = zvPhnCnt + 1
+  End If
+  
+  Set zvPhnLst.Index = ""
+  While $$zvPhnLst.GetNext() <> ""
+    
+    Set zvPhnNum = ""
+    Set zvPhnRnk = ""
+    Set zvPhnBlk = ""
+    Set zvPhnCns = ""
+    
+    Set zvPhnNum = zvPhnLst.Index
+    Set zvPhnRnk = $$PIECE(zvPhnLst.CurrentVal,"*-*",2)
+    Set zvPhnBlk = $$PIECE(zvPhnLst.CurrentVal,"*-*",3)
+    Set zvPhnCns = $$PIECE(zvPhnLst.CurrentVal,"*-*",4)
+    
+    If (zvPhnRnk <> "1") And (zvPhnRnk <> "2") Then
+      Set zvPhnRnk = zvPhnCnt
+      Set zvPhnCnt = zvPhnCnt + 1
+    End If
+    
+    Call zvPhnLst.Add(zvPhnNum,"*-*"_zvPhnRnk_"*-*"_zvPhnBlk_"*-*"_zvPhnCns)
+    
+  End While
+  
+End Sub CreatePhnList
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub TiedAccts
+  '"acct#"*-*"phone number"*-*"phone rank"*-*"phone block"*-*"cell consent"*-*"lv hist id"
+  
+  Set zvRelIdx.ARRELENID = zvExtEnId
+  Set zvRelIdx.ARRELID = ""
+  
+  '--- loop accts
+  While $$zvRelIdx.Next() <> ""
+    
+    Set zvAccId = ""
+    Set zvRelId = ""
+    Set zvPhnLst.Index = ""
+    
+    Set zvRel.ARRELID = zvRelIdx.ARRELID
+    Set zvAct.ARACID = zvRel.ARRELACID
+    
+    If (zvRel.ZZRELLVLOADDTE <> "") And (zvAct.ZZACLVLOADDTE <> "") Then
+      
+      Set zvRelId = zvRel.ARRELID
+      Set zvAccId = zvAct.ARACID
+      
+      If zvRel.ARRELTYPID = "COMAK" Then
+        Set zvAccId = zvAccId_"C"
+      End If
+      
+      '--- loop phone
+      While $$zvPhnLst.GetNext() <> ""
+        
+        Set zvSndStr = ""
+        
+        Set zvLvApiHstId = "NPH"_$$TODAY()_$$NOW()_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_$$RANDOM(10)_zvAccId
+        
+        Set zvSndStr = zvAccId_"*-*"_zvPhnLst.Index_zvPhnLst.CurrentVal_"*-*"_zvLvApiHstId
+        Set zvData = zvSndStr
+        
+        '--- send req
+        Set zvData = $$TRANS(zvData," ","_")
+        Set zvFunc = "NewPhone"
+        Gosub SendReq
+        
+      End While
+      
+    End If
+    
+  End While
+  
+End Sub TiedAccts
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub CreateLvHist
+  
+  Call zvLvHis.create()
+  
+  Set zvLvHis.ZZLVAPIHID = zvLvApiHstId
+  Set zvLvHis.ZZLVAPIHACTID = zvAccId
+  Set zvLvHis.ZZLVAPIHRELID = zvRelId
+  Set zvLvHis.ZZLVAPIHENTID = zvEntId
+  Set zvLvHis.ZZLVAPIHTABLE = zvTable
+  Set zvLvHis.ZZLVAPIHRECID = zvAccId
+  Set zvLvHis.ZZLVAPIHFUNC = zvFunc
+  Set zvLvHis.ZZLVAPIHDTEOUT = $$TODAY()
+  Set zvLvHis.ZZLVAPIHTIMOUT = $$NOW()
+  Set zvLvHis.ZZLVAPIHCMPLT = "N"
+  Set zvLvHis.ZZLVAPIHDATAOUT = "call ZZLVAPIMANREQ("_zvFunc_","_zvData_")"
+  Set zvLvHis.ZZLVAPIHTEST = zvTstStr
+  
+  Call zvLvHis.Write()
+  
+  Set zvLvApiHstId = ""
+  
+End Sub CreateLvHist
+'______________________________________________________________________________________________________________________________________________
+'______________________________________________________________________________________________________________________________________________
+Begin Sub SendReq
+  
+  '-- set ids and functions correctly
+  If zvAccId <> "" Then
+    
+    Gosub CreateLvHist
+    
+    'Print "Call ZZLVAPIMANREQ("_zvFunc_","_zvData_")"
+    Audit "Call ZZLVAPIMANREQ("_zvFunc_","_zvData_")"
+    Call ZZLVAPIMANREQ(zvFunc,zvData)
+    
+  Else
+    
+    Audit "LvApi: no zvAccId set"
+    
+  End If
+  
+End Sub SendReq
+
+***End CODE
+***End LB

@@ -1,0 +1,34 @@
+ZZEXTST
+script export test^G^0^1^RMDEV^^2^^ZZEXTST
+***Begin CODE
+' this is a test script #1
+' 12/2/2020 - 12:06pm
+'    - hopefully, final test . . .
+' It was the last test
+Begin Declare
+  
+  ' declare section
+  zvTest1 As Chr
+  zvTest2 As Chr
+  
+  zvTest3 As Number
+  
+  
+End Declare
+
+Begin Main
+  
+  ' set vars
+  Set zvTest1 = "test1"
+  Set zvTest2 = "test2"
+  Set zvTest3 = 3
+  
+  ' this is test script # 1
+  ' ill put some stuff here too
+  
+  ' and here
+  
+End Main
+
+***End CODE
+***End LB

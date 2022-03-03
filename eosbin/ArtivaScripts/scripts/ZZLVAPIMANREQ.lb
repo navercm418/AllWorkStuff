@@ -1,0 +1,28 @@
+ZZLVAPIMANREQ
+***Begin PARAMS
+zvLvFunction^CHR^N^^N
+zvLvDataIn^CHR^N^^N
+***End PARAMS
+LiveVox Api Manual Request^G^0^1^RMDEV^^4^^ZZLVAPIMANREQ
+***Begin PARAMS
+zvLvFunction^CHR^N^^N
+zvLvDataIn^CHR^N^^N
+***End PARAMS
+***Begin CODE
+' parameters: zvLvFunction = CHR, zvLvDataIn   = CHR
+Begin Declare
+  zvData As Chr
+  zvQuote As Chr
+End Declare
+Begin Main
+  Set zvQuote = "'"
+  Set zvData = zvLvDataIn
+  Set zvData = $$TRANS(zvData,zvQuote,"")
+  Set zvLvFunction = zvQuote_zvLvFunction_zvQuote
+  Set zvLvDataIn = zvQuote_zvLvDataIn_zvQuote
+  Call SYSHELL("/usr/local/bin/python3.6 /home/eosbin/LiveVoxApi/Request/LvReq.py "_zvLvFunction_" "_zvLvDataIn,1)
+  Audit LBERRMSG
+End Main
+
+***End CODE
+***End LB

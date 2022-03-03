@@ -1,0 +1,271 @@
+ZZLVAPIRETURN
+LiveVox API Return From LiveVox^G^0^1^RMDEV^^0^^ZZLVAPIRETURN
+***Begin CODE
+'parameters:
+'            zvLvHstIdIn = CHR
+'            zvDataIn    = CHR
+'
+'--------------------------------------------------
+'Return Codes:
+'
+'    Crt201 = Create Contact - connection complete with no errors
+'    Crt202 = Create Contact - account already exists
+'    Udt204 = Update Contact - request was successful
+'    Udt404 = Update Contact - Contact Doesn't Exist
+'    Phn204 = Update Phone   - request was successful
+'    Phn404 = Update Phone   - Contact Doesn't Exist
+'    Nph204 = New Phone      - request was successful
+'    Nph404 = New Phone      - Contact Doesn't Exist
+'    Log401 = Login          - Log in refused
+
+Begin Declare
+  
+  zvLvHist As syTabRec.ZZLVAPIHIST
+  zvAct As syTabRec.ARACCOUNT
+  zvRel As syTabRec.ARRELATIONSHIP
+  zvEnt As syTabRec.ARENTITY
+  
+  zvCode As Chr
+  zvMsg As Chr
+  
+End Declare
+
+Begin Main
+  
+  'Audit "----------------------------------------------------------------------------------------"
+  'Audit "LvAPI return: HistId = "_zvLvHstIdIn_" | Data = "_zvDataIn
+  
+  Set zvRel.ARRELID = ""
+  Set zvAct.ARACID = ""
+  Set zvEnt.ARENID = ""
+  Set zvLvHist.ZZLVAPIHID = ""
+  
+  Set zvLvHist.ZZLVAPIHID = zvLvHstIdIn
+  
+  Set zvRel.ARRELID = zvLvHist.ZZLVAPIHRELID
+  Set zvAct.ARACID = zvLvHist.ZZLVAPIHACTID
+  Set zvEnt.ARENID = zvLvHist.ZZLVAPIHENTID
+  
+  Set zvCode = $$PIECE(zvDataIn,"*-*",1)
+  Set zvMsg = $$PIECE(zvDataIn,"*-*",2)
+  
+  If $$BLANK(zvCode) Then
+    Set zvCode = zvDataIn
+  End If
+  
+  Select zvCode
+      
+    Case "Crt201"
+      Gosub Crt201
+      
+    Case "Crt202"
+      Gosub Crt202
+      
+    Case "Udt204"
+      Gosub Udt204
+      
+    Case "Udt404"
+      Gosub Udt404
+      
+    Case "Phn204"
+      Gosub Phn204
+      
+    Case "Phn404"
+      Gosub Phn404
+      
+    Case "Nph204"
+      Gosub Nph204
+      
+    Case "Nph404"
+      Gosub Nph404
+      
+    Case "Log401"
+      Gosub Log401
+      
+      
+    Case Else
+      
+      Set zvLvHist.ZZLVAPIHCMPLT = "N"
+      Set zvLvHist.ZZLVAPIHCODE = zvCode
+      Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+      Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+      Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+      Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+      Call zvLvHist.Write()
+      
+  End Select
+  
+End Main
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Crt201
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "Y"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+  Set zvRel.ZZRELLVLOADDTE = ""
+  Set zvRel.ZZRELLVLOADDTE = $$TODAY()
+  Call zvRel.Write()
+  
+  Set zvAct.ZZACLVLOADDTE = ""
+  Set zvAct.ZZACLVLOADDTE = $$TODAY()
+  Call zvAct.Write()
+  
+  Set zvEnt.ZZENLVLOADDTE = ""
+  Set zvEnt.ZZENLVLOADDTE = $$TODAY()
+  Call zvEnt.Write()
+  
+  Call ZZLVAPICRTRTN(zvLvHist.ZZLVAPIHID,zvLvHist.ZZLVAPIHACTID)
+  
+End Sub Crt201
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Crt202
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "N"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+End Sub Crt202
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Udt204
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "Y"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+  Set zvRel.ZZRELLVUPDTDTE = ""
+  Set zvRel.ZZRELLVUPDTDTE = $$TODAY()
+  Call zvRel.Write()
+  
+  Set zvAct.ZZACLVUPDTDTE = ""
+  Set zvAct.ZZACLVUPDTDTE = $$TODAY()
+  Call zvAct.Write()
+  
+  Set zvEnt.ZZENLVUPDTDTE = ""
+  Set zvEnt.ZZENLVUPDTDTE = $$TODAY()
+  Call zvEnt.Write()
+  
+End Sub Udt204
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Udt404
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "N"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+End Sub Udt404
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Phn204
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "Y"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+  Set zvRel.ZZRELLVUPDTDTE = ""
+  Set zvRel.ZZRELLVUPDTDTE = $$TODAY()
+  Call zvRel.Write()
+  
+  Set zvAct.ZZACLVUPDTDTE = ""
+  Set zvAct.ZZACLVUPDTDTE = $$TODAY()
+  Call zvAct.Write()
+  
+  Set zvEnt.ZZENLVUPDTDTE = ""
+  Set zvEnt.ZZENLVUPDTDTE = $$TODAY()
+  Call zvEnt.Write()
+  
+End Sub Phn204
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Phn404
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "N"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+End Sub Phn404
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Nph204
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "Y"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+  Set zvRel.ZZRELLVUPDTDTE = ""
+  Set zvRel.ZZRELLVUPDTDTE = $$TODAY()
+  Call zvRel.Write()
+  
+  Set zvAct.ZZACLVUPDTDTE = ""
+  Set zvAct.ZZACLVUPDTDTE = $$TODAY()
+  Call zvAct.Write()
+  
+  Set zvEnt.ZZENLVUPDTDTE = ""
+  Set zvEnt.ZZENLVUPDTDTE = $$TODAY()
+  Call zvEnt.Write()
+  
+End Sub Nph204
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Nph404
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "N"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+End Sub Nph404
+'____________________________________________________________________________________________________________________________________
+'____________________________________________________________________________________________________________________________________
+Begin Sub Log401
+  
+  Set zvLvHist.ZZLVAPIHCMPLT = "N"
+  Set zvLvHist.ZZLVAPIHCODE = zvCode
+  Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+  Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+  Set zvLvHist.ZZLVAPIHDATAIN = zvLvHstIdIn_" "_zvDataIn
+  Set zvLvHist.ZZLVAPIHDETAILS = zvCode_": "_zvMsg
+  Call zvLvHist.Write()
+  
+End Sub Log401
+
+
+
+
+***End CODE
+***End LB

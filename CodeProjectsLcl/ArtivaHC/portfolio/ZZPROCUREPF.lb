@@ -1,0 +1,44 @@
+Begin Declare
+	
+	Shared ZVFACW As Chr
+	Shared ZVSTATW As Chr
+	Shared ZVPAYIDW As Chr
+	Shared ZVFNCLSW As Chr
+	
+	Shared ZVFAC As Chr
+	Shared ZVSTAT As Chr
+	Shared ZVPAYID As Chr
+	Shared ZVFNCLS As Chr
+	
+End Declare
+Begin Main
+	
+	' Initialize
+	
+	
+	If $$DISPWIN("", "", "ZZPROCUREWIN" ) = "SAVE" Then
+		' User chose values so let's make sure that's all they see.
+		If Not $$BLANK(ZVFACW) Then
+			Set ZVFAC = ZVFACW
+		End If
+		If Not $$BLANK(ZVSTATW) Then
+			Set ZVSTAT = ZVSTATW
+		End If
+		If Not $$BLANK(ZVPAYIDW) Then
+			Set ZVPAYID = ZVPAYIDW
+		End If
+		If Not $$BLANK(ZVFNCLSW) Then
+			Set ZVFNCLS = ZVFNCLSW
+		End If
+		
+	Else
+		' Cancelled out of window.
+		Set LBRETURN = 0
+	End If
+	
+	'Print " Win = "_ZVFACW_" - "_ZVSTATW_" - "_ZVPAYIDW_" - "_ZVFNCLSW
+	'Print " Pf  = "_ZVFAC_" - "_ZVSTAT_" - "_ZVPAYID_" - "_ZVFNCLS
+	'Print " Acc = "_HCACFACILITY_" - "_HCACCODE_" - "_HCACPAYNAME_" - "_HCACFINCLASS
+	
+	
+End Main

@@ -1,0 +1,39 @@
+' ZZACTRXPSTPRE
+
+' 05/04/2020 NRG  - Updated to handle new values for field ZZTRCHANNEL.  Task 605.
+' 02/25/2021 SFM  - Changed the default value from CL to AGY in the ZZTRCHANNEL.  ITR# 54175.  Task 620.
+
+Begin Declare
+	Shared HVTOTALAMT As Amt
+	Shared HVINS As Chr
+	Shared HVSP As Chr
+	Shared HVTIED As Chr
+	Shared HVSPLTEVN As Chr
+	Shared HVDTE As Number
+	Shared HVTOTACC As Number
+	Shared HVTOTENC As Number
+	Shared HVTRXTYP As Chr
+	Shared HVACCONLY As Chr
+	Shared HVENCONLY As Chr
+	Shared HVBTHBAL As Chr
+	Shared ZVTRCHANNEL As Chr                ' variable for transaction Channel
+End Declare
+
+Begin Main
+	Set HVTRXTYP = ""
+	Set HVTOTALAMT = ""
+	Set HVINS = ""
+	Set HVSP = "X"
+	Set HVTIED = "X"
+	Set HVSPLTEVN = "X"
+	Set HVDTE = ""
+	Set HVTOTACC = ""
+	Set HVTOTENC = ""
+	Set HVACCONLY = ""
+	Set HVENCONLY = ""
+	Set HVBTHBAL = "X"
+	'Set ZVTRCHANNEL = "CL"    'Set the default value for transaction channel to  Client
+	Set ZVTRCHANNEL = "AGY"    'Task 620.
+	
+	Call SYREFRESHWIN("HCACCOUNT","ZZACTRXPSTWIN")
+End Main

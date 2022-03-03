@@ -1,0 +1,8 @@
+#!/bin/bash
+
+echo "Initializing . . ."
+
+# permissions
+sudo chown -Rf cacheusr:cacheusr /home/eosbin/LiveVoxApi
+sudo chmod -Rf 0770 /home/eosbin/LiveVoxApi
+echo "Permissions Changed"

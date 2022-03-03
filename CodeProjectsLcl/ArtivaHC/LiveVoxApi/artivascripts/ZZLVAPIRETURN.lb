@@ -1,0 +1,180 @@
+' parameters:
+'            zvFilNam = CHR
+'            zvSecs   = CHR
+'
+'--------------------------------------------------
+' Return Codes:
+'
+'    Udt204 = Update Contact - request was successful
+'    Udt404 = Update Contact - Contact Doesn't Exist
+'    Phn204 = Update Phone   - request was successful
+'    Phn404 = Update Phone   - Contact Doesn't Exist
+'    Log401 = Login          - Log in refused
+
+Begin Declare
+	
+	zvLvHist As syTabRec.ZZLVAPIHIST
+	zvAct As syTabRec.ARACCOUNT
+	zvRel As syTabRec.ARRELATIONSHIP
+	zvEnt As syTabRec.ARENTITY
+	
+	zvFilSvc As syFile
+	
+	zvFileIn As Chr
+	zvData As Chr
+	
+	zvSecsIn As Number
+	zvSt As Number
+	zvEt As Number
+	zvDt As Number
+	zvTt As Number
+	
+	zvLvAct As Chr
+	zvCode As Chr
+	zvMsg As Chr
+	zvLvHstId As Chr
+	zvPayLoad As Chr
+	
+End Declare
+
+Begin Main
+	
+	Set zvSt = $$NOW()
+	
+	If $$ZZLVAPIGETOPT("ENABLED") = "Y" Then
+		
+		Set zvFileIn = zvFilNam
+		Set zvSecsIn = zvSecs
+		
+		
+		Set zvFilSvc.FileName = zvFilNam
+		Call zvFilSvc.Open(zvFilNam)
+		
+		If LBERR <> 0 Then
+			If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+				Audit LBERRMSG
+			End If
+		End If
+		
+		If LBERR = 0 Then
+			While Not zvFilSvc.EOF
+				
+				' 1 act:     47*-*
+				' 2 lvhid:   UDT6606740263110682*-*
+				' 3 code:    Udt404*-*
+				' 4 msg:     rtn:Udt404,_msg:{code:202,message:Unexpected_input_at_line:_1,_column:_651}*-*
+				' 5 payload: {'updateContactDetails':_{'person':_{'firstName':_'Ghost_Girl_2',_'lastName':_'The_Warrior_2',_'zipCode':_'48245'},_'customFields':_[{'field':_'COL12',...
+				
+				Call zvFilSvc.Read(zvData)
+				
+				Set zvLvAct = $$PIECE(zvData,"*-*",1)
+				Set zvLvHstId = $$PIECE(zvData,"*-*",2)
+				Set zvCode = $$PIECE(zvData,"*-*",3)
+				Set zvMsg = $$PIECE(zvData,"*-*",4)
+				Set zvPayLoad = $$PIECE(zvData,"*-*",5)
+				
+				
+				Set zvLvHist.ZZLVAPIHID = ""
+				Set zvLvHist.ZZLVAPIHID = zvLvHstId
+				
+				Set zvRel.ARRELID = ""
+				Set zvAct.ARACID = ""
+				Set zvEnt.ARENID = ""
+				
+				Set zvRel.ARRELID = zvLvHist.ZZLVAPIHRELID
+				Set zvAct.ARACID = zvLvHist.ZZLVAPIHACTID
+				Set zvEnt.ARENID = zvLvHist.ZZLVAPIHENTID
+				
+				
+				If $$BLANK(zvCode) Then
+					Set zvCode = zvData
+				End If
+				
+				Set zvLvHist.ZZLVAPIHCODE = zvCode
+				Set zvLvHist.ZZLVAPIHDATAIN = zvData
+				Set zvLvHist.ZZLVAPIHDETAILS = "code{"_zvCode_"}, msg{"_zvMsg_"}, payload{"_zvPayLoad_"}"
+				
+				Set zvCode = $$EXTRACT(zvCode,4,6)
+				
+				If zvCode = "204" Then
+					
+					If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+						Audit "code="_zvCode_", 204"
+					End If
+					
+					Set zvLvHist.ZZLVAPIHCMPLT = "Y"
+					Set zvLvHist.ZZLVAPIHSTATUS = "COMPLETE"
+					Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+					Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+					Call zvLvHist.Write()
+					
+					Set zvRel.ZZRELLVUPDTDTE = $$TODAY()
+					Call zvRel.Write()
+					
+					Set zvAct.ZZACLVUPDTDTE = $$TODAY()
+					Call zvAct.Write()
+					
+					Set zvEnt.ZZENLVUPDTDTE = $$TODAY()
+					Call zvEnt.Write()
+					
+				End If
+				
+				' -- 404
+				If zvCode = "404" Then
+					
+					If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+						Audit "code="_zvCode_", 404"
+					End If
+					
+					Set zvLvHist.ZZLVAPIHCMPLT = "N"
+					Set zvLvHist.ZZLVAPIHSTATUS = "RETURNED"
+					Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+					Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+					
+					Call zvLvHist.Write()
+					
+				End If
+				
+				' -- Log
+				If zvCode = "401" Then
+					
+					If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+						Audit "code="_zvCode_", 401"
+					End If
+					
+					Set zvLvHist.ZZLVAPIHCMPLT = "N"
+					Set zvLvHist.ZZLVAPIHSTATUS = "ERROR"
+					Set zvLvHist.ZZLVAPIHTIMIN = $$NOW()
+					Set zvLvHist.ZZLVAPIHDTEIN = $$TODAY()
+					
+					Call zvLvHist.Write()
+					
+				End If
+				
+				Set zvEt = $$NOW()
+				Set zvDt = zvEt - zvSt
+				Set zvTt = zvDt + zvSecsIn
+				Set zvLvHist.ZZLVAPIHTEST = "total run time: "_zvTt
+				Call zvLvHist.Write()
+				
+			End While
+			
+			If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+				Audit "total run time = "_zvTt
+			End If
+			
+			Set zvFilSvc.FileName = zvFilNam
+			Call zvFilSvc.Delete(zvFilNam)
+			
+		Else
+			If $$ZZLVAPIGETOPT("AUDIT") = "ON" Then
+				Audit LBERRMSG
+			End If
+		End If
+		
+		Call ZZLVAPISETOPT("LST_RUN_DTE",$$FMTDATE($$TODAY(),"MM/DD/YYYY"))
+		Call ZZLVAPISETOPT("LST_RUN_TIME",$$FMTTIME($$NOW(),"HH:MM:SS"))
+		
+	End If
+	
+End Main

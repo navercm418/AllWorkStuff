@@ -1,0 +1,14 @@
+ZZLVAPILOGIN
+LiveVox Api Login^I^0^1^RMDEV^^2^^ZZLVAPILOGIN
+***Begin CODE
+Begin Declare
+End Declare
+Begin Main
+  'Audit "lv login ran"
+  Call SYSHELL("python3.6 /mnt/iscsi/RMPROD/LvApi/Request/LiveVoxLogin.py",1)
+  '             python3.6 /home/eosbin/LvApi/Request/LiveVoxLogin.py
+  'Audit LBERRMSG
+End Main
+
+***End CODE
+***End LB

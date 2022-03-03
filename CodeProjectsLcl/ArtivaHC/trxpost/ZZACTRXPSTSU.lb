@@ -1,0 +1,328 @@
+Begin Declare
+	
+	Shared HVTOTALAMT As Amt
+	Shared HVINS As Chr
+	Shared HVSP As Chr
+	Shared HVTIED As Chr
+	Shared HVSPLTEVN As Chr
+	Shared HVDTE As Date
+	
+	Shared HVTOTACC As Number
+	Shared HVTOTENC As Number
+	Shared HVTRXTYP As Chr
+	
+	Shared HVACCONLY As Chr
+	Shared HVENCONLY As Chr
+	Shared HVBTHBAL As Chr
+	
+	zvAcc As syTabRec.HCACCOUNT
+	zvEnc As syTabRec.HCENCOUNTER
+	zvTmx As syTabRec.ZZTMPTRX
+	
+	zvTieIdx As syIndex.HCACTIEFLD
+	zvEncIdx As syIndex.HCACENCNTRID
+	
+	
+	zvTmpTotAmt As Amt
+	zvTmpTotAcc As Number
+	zvTmpAmt As Amt
+	zvTmpSplAmt As Amt
+	zvTmpMainAcc As Number
+	zvTmpEfct As Chr
+	
+	zvAmt As Amt
+	zvBal As Amt
+	zvEAmt As Amt
+	zvEBal As Amt
+	
+End Declare
+
+Begin Main
+	
+	Set zvAmt = ""
+	Set zvEAmt = ""
+	Set zvBal = ""
+	Set zvEBal = ""
+	
+	Set zvTmpEfct = ""
+	Set zvTmpSplAmt = ""
+	Set zvTmpTotAmt = ""
+	Set zvTmpAmt = ""
+	Set zvTmpTotAcc = ""
+	
+	
+	Set zvAcc.HCACID = ""
+	Set zvEnc.HCENID = ""
+	Set zvTmx.ZZTMPTRXID = ""
+	
+	Set zvTieIdx.HCACTIEFLD = ""
+	Set zvTieIdx.HCACID = ""
+	
+	Set zvEncIdx.HCACENCNTRID = ""
+	Set zvEncIdx.HCACID = ""
+	
+	
+	Set zvAcc.HCACID = HCACID
+	Set zvTmpMainAcc = HCACID
+	Set zvEnc.HCENID = zvAcc.HCACENCNTRID
+	
+	
+	'---- Self Pay ----
+	If HVSP = "X" Then
+		Gosub SelfPay
+	End If
+	
+	'--- Insurance ---
+	If HVINS = "X" Then
+		Gosub Ins
+	End If
+	
+	Call SYREFRESHWIN("HCACCOUNT","ZZACTRXPSTWIN")
+	
+End Main
+'_____________________________________________________________________________________________________________________________________
+'_____________________________________________________________________________________________________________________________________
+Begin Sub SelfPay
+	
+	If HVTIED = "X" Then
+		
+		Set zvTieIdx.HCACTIEFLD = zvAcc.HCACTIEFLD
+		Set zvTieIdx.HCACID = ""
+		
+		Gosub GetTieInfoSP
+		
+		Set zvTmpAmt = zvTmpSplAmt
+		
+		While $$zvTieIdx.Next() <> ""
+			
+			Set zvAcc.HCACID = zvTieIdx.HCACID
+			Set zvEnc.HCENID = zvAcc.HCACENCNTRID
+			
+			If zvAcc.HCACSEQNUM = 99 Then
+				
+				Gosub CreateTmpTrx
+				
+			End If
+		End While
+		
+	Else
+		
+		Set zvTmpAmt = HVTOTALAMT
+		Gosub CreateTmpTrx
+		
+	End If
+	
+End Sub SelfPay
+'_____________________________________________________________________________________________________________________________________
+'_____________________________________________________________________________________________________________________________________
+Begin Sub Ins
+	
+	If HVTIED = "X" Then
+		
+		Set zvTieIdx.HCACTIEFLD = zvAcc.HCACTIEFLD
+		Set zvTieIdx.HCACID = ""
+		
+		Gosub GetTieInfoIns
+		
+		Set zvTmpAmt = zvTmpSplAmt
+		
+		While $$zvTieIdx.Next() <> ""
+			
+			Set zvAcc.HCACID = zvTieIdx.HCACID
+			
+			Set zvEncIdx.HCACENCNTRID = zvAcc.HCACENCNTRID
+			Set zvEncIdx.HCACID = ""
+			
+			
+			While $$zvEncIdx.Next() <> ""
+				
+				Set zvAcc.HCACID = zvEncIdx.HCACID
+				Set zvEnc.HCENID = zvAcc.HCACENCNTRID
+				
+				If zvAcc.HCACSEQNUM <> 99 Then
+					
+					Gosub CreateTmpTrx
+					
+				End If
+			End While
+			
+		End While
+		
+	Else
+		
+		Set zvEncIdx.HCACENCNTRID = zvAcc.HCACENCNTRID
+		Set zvEncIdx.HCACID = ""
+		
+		
+		While $$zvEncIdx.Next() <> ""
+			
+			Set zvAcc.HCACID = zvEncIdx.HCACID
+			
+			If zvAcc.HCACSEQNUM <> 99 Then
+				
+				Set zvTmpAmt = HVTOTALAMT
+				Gosub CreateTmpTrx
+				
+			End If
+		End While
+		
+	End If
+	
+End Sub Ins
+'_____________________________________________________________________________________________________________________________________
+'_____________________________________________________________________________________________________________________________________
+Begin Sub CreateTmpTrx
+	
+	'-- prestets --------------
+	Read HCTTEFFECT With HVTRXTYP
+	Set zvTmpEfct = HCTTEFFECT
+	
+	'------ Acct Only ------
+	If HVACCONLY = "X" Then
+		
+		Set zvAmt = zvTmpAmt
+		Set zvEAmt = 0
+		Set zvBal = zvAcc.HCACBAL
+		Set zvEBal = zvEnc.HCENBAL
+		
+		Print "Acc - zvBal = "_zvAcc.HCACBAL_" | zvEBal = "_zvEnc.HCENBAL
+		
+		If zvTmpEfct = "+" Then
+			Set zvAmt = zvAmt * -1
+		End If
+		If zvTmpEfct = "-" Then
+			Set zvAmt = zvAmt * 1
+		End If
+		If zvTmpEfct = "N" Then
+			Set zvAmt = zvAmt * 0
+		End If
+		
+	End If
+	'------------------------------
+	
+	'------ Enc Only ------
+	If HVENCONLY = "X" Then
+		
+		Set zvAmt = 0
+		Set zvEAmt = zvTmpAmt
+		Set zvBal = zvAcc.HCACBAL
+		Set zvEBal = zvEnc.HCENBAL
+		
+		Print "Enc - zvBal = "_zvAcc.HCACBAL_" | zvEBal = "_zvEnc.HCENBAL
+		
+		If zvTmpEfct = "+" Then
+			Set zvEAmt = zvEAmt * -1
+		End If
+		If zvTmpEfct = "-" Then
+			Set zvEAmt = zvEAmt * 1
+		End If
+		If zvTmpEfct = "N" Then
+			Set zvEAmt = zvEAmt * 0
+		End If
+		
+	End If
+	'------------------------------
+	
+	'------ Both ------
+	If HVBTHBAL = "X" Then
+		
+		Set zvAmt = zvTmpAmt
+		Set zvEAmt = zvTmpAmt
+		Set zvBal = zvAcc.HCACBAL
+		Set zvEBal = zvEnc.HCENBAL
+		
+		Print "Both - zvBal = "_zvAcc.HCACBAL_" | zvEBal = "_zvEnc.HCENBAL
+		
+		If zvTmpEfct = "+" Then
+			Set zvEAmt = zvEAmt * -1
+			Set zvAmt = zvAmt * -1
+		End If
+		If zvTmpEfct = "-" Then
+			Set zvEAmt = zvEAmt * 1
+			Set zvAmt = zvAmt * 1
+		End If
+		If zvTmpEfct = "N" Then
+			Set zvEAmt = zvEAmt * 0
+			Set zvAmt = zvAmt * 0
+		End If
+		
+	End If
+	'------------------------------
+	
+	Call zvTmx.Create()
+	
+	Set zvTmx.ZZTMPTRXACCT = zvAcc.HCACID
+	Set zvTmx.ZZTMPTRXAMT = zvTmpAmt
+	Set zvTmx.ZZTMPTRXDTE = HVDTE
+	Set zvTmx.ZZTMPTRXTYPE = HVTRXTYP
+	Set zvTmx.ZZTMPTRXEFCT = zvTmpEfct
+	Set zvTmx.ZZTMPTRXENC = zvAcc.HCACENCNTRID
+	Set zvTmx.ZZTMPTRXPTACCT = zvAcc.ZZACPTACCT
+	Set zvTmx.ZZTMPTRXMAINACCT = zvTmpMainAcc
+	Set zvTmx.ZZTMPTRXPYR = zvAcc.HCACPAYERID
+	Set zvTmx.ZZTMPTRXTOTAMT = HVTOTALAMT
+	Set zvTmx.ZZTMPTRXBAL = zvAcc.HCACBAL
+	Set zvTmx.ZZTMPTRXEBAL = zvEnc.HCENBAL
+	Set zvTmx.ZZTMPTRXBALAFT = zvBal - zvAmt
+	Set zvTmx.ZZTMPTRXEBALAFT = zvEBal - zvEAmt
+	
+	Call zvTmx.Write()
+	
+End Sub CreateTmpTrx
+'_____________________________________________________________________________________________________________________________________
+'_____________________________________________________________________________________________________________________________________
+Begin Sub GetTieInfoSP
+	
+	If (zvAcc.HCACTIEFLD <> "") And (zvAcc.HCACSETCNT > 1) Then
+		
+		While $$zvTieIdx.Next() <> ""
+			
+			Set zvAcc.HCACID = zvTieIdx.HCACID
+			If zvAcc.HCACSEQNUM = 99 Then
+				
+				Set zvTmpTotAmt = zvTmpTotAmt + zvAcc.HCACBAL
+				Set zvTmpTotAcc = zvTmpTotAcc + 1
+				
+			End If
+		End While
+		
+		Set zvTmpSplAmt = HVTOTALAMT / zvTmpTotAcc
+		
+	Else
+		
+		Set zvTmpTotAmt = zvAcc.HCACBAL
+		Set zvTmpTotAcc = 1
+		Set zvTmpSplAmt = zvAcc.HCACBAL
+		
+	End If
+	
+End Sub GetTieInfoSP
+'_____________________________________________________________________________________________________________________________________
+'_____________________________________________________________________________________________________________________________________
+Begin Sub GetTieInfoIns
+	Set zvTmpTotAcc = 1
+	While $$zvTieIdx.Next() <> ""
+		
+		Set zvAcc.HCACID = zvTieIdx.HCACID
+		
+		Set zvEncIdx.HCACENCNTRID = zvAcc.HCACENCNTRID
+		Set zvEncIdx.HCACID = ""
+		
+		
+		While $$zvEncIdx.Next() <> ""
+			
+			Set zvAcc.HCACID = zvEncIdx.HCACID
+			
+			If zvAcc.HCACSEQNUM <> 99 Then
+				
+				Set zvTmpTotAmt = zvTmpTotAmt + zvAcc.HCACBAL
+				Set zvTmpTotAcc = zvTmpTotAcc + 1
+				
+			End If
+		End While
+		
+	End While
+	
+	Set zvTmpSplAmt = HVTOTALAMT / zvTmpTotAcc
+	
+End Sub GetTieInfoIns

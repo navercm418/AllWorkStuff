@@ -1,0 +1,16 @@
+ZZARPHCREATESCR
+New Phone Record^G^0^1^RMDEV^^2^^ZZARPHCREATESCR
+***Begin CODE
+Begin Declare
+  
+End Declare
+Begin Main
+  
+  '------------ LiveVox Api ---------------
+  Call ZZLVAPIUDTPHN(ARPHENID)
+  '----------------------------------------
+  
+End Main
+
+***End CODE
+***End LB
